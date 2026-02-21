@@ -79,8 +79,8 @@ const handleAuthExpired = async (message: string) => {
 }
 
 const toUiExp = (level: BackendLevel, currentLevelXp: number) => {
-  const perLevel = 360
-  const normalizedCurrent = Math.max(0, Math.floor(currentLevelXp))
+  const perLevel = 100
+  const normalizedCurrent = Math.max(0, Math.floor(currentLevelXp)) % perLevel
 
   if (level === 'NEWBIE') return normalizedCurrent
   if (level === 'JUNIOR') return perLevel + normalizedCurrent
@@ -264,6 +264,9 @@ const renderState = (state: PetState) => {
   const miniLv = mounted.shadow.querySelector<HTMLElement>('[data-highton="miniHoverLv"]')
   const miniCoins = mounted.shadow.querySelector<HTMLElement>('[data-highton="miniHoverCoins"]')
   const miniExp = mounted.shadow.querySelector<HTMLElement>('[data-highton="miniHoverExp"]')
+  const miniQuestBadge = mounted.shadow.querySelector<HTMLElement>(
+    '[data-highton="miniQuestBadge"]',
+  )
   const miniPet = mounted.shadow.querySelector<HTMLImageElement>('[data-highton="miniPet"]')
   const miniHat = mounted.shadow.querySelector<HTMLImageElement>('[data-highton="miniHat"]')
   const feedCost = mounted.shadow.querySelector<HTMLElement>('[data-highton="feedCost"]')
@@ -410,6 +413,18 @@ const renderState = (state: PetState) => {
   applyQuestRow('commit1')
   applyQuestRow('pr1')
   applyQuestRow('review1')
+
+  const hasClaimableQuest =
+    isQuestCompleted(normalized, 'commit1') ||
+    isQuestCompleted(normalized, 'pr1') ||
+    isQuestCompleted(normalized, 'review1')
+  if (miniQuestBadge) {
+    if (hasClaimableQuest) {
+      miniQuestBadge.setAttribute('data-open', '1')
+    } else {
+      miniQuestBadge.removeAttribute('data-open')
+    }
+  }
 }
 
 const mountWidget = () => {
