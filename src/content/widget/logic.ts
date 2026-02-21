@@ -20,7 +20,8 @@ export const getDayKey = (d = new Date()) => {
 export const createDefaultState = (): PetState => {
   const dayKey = getDayKey()
   return {
-    coins: 360,
+    coins: 0,
+    lockedEggs: 0,
     exp: 0,
     mood: 'NORMAL',
     lastCommitAt: 0,
