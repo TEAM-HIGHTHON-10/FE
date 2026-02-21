@@ -21,6 +21,7 @@ export const createDefaultState = (): PetState => {
   const dayKey = getDayKey()
   return {
     coins: 0,
+    goldenEggs: 0,
     lockedEggs: 0,
     exp: 0,
     mood: 'NORMAL',
