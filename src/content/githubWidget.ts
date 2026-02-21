@@ -229,7 +229,7 @@ const connectQuestSocket = async () => {
       if (data.questType === 'COMMIT') toast('커밋 퀘스트 완료! 받기를 눌러 코인을 받으세요.')
       else if (data.questType === 'PR') toast('PR 퀘스트 완료! 받기를 눌러 코인을 받으세요.')
       else if (data.questType === 'ISSUE' || data.questType === 'REVIEW') {
-        toast('리뷰 퀘스트 완료! 받기를 눌러 코인을 받으세요.')
+        toast('이슈 퀘스트 완료! 받기를 눌러 코인을 받으세요.')
       } else if (data.questType === 'GAME') {
         toast(`게임 승리! 황금 달걀 +${data.eggsEarned}`)
       }
