@@ -28,6 +28,7 @@ import {
   BACKEND_WS_URL,
   type BackendLevel,
   type FeedResponse,
+  type GameResultResponse,
   type QuestCompletedEvent,
   type RuntimeResponse,
   type StatusResponse,
@@ -44,6 +45,7 @@ const getMounted = () => {
 }
 
 let toastTimerId: number | null = null
+const GAME_PLAY_COST = 10
 
 const toast = (text: string) => {
   const mounted = getMounted()
@@ -215,6 +217,9 @@ const connectQuestSocket = async () => {
         lockedEggs: nextLockedEggs,
         counts: nextCounts,
       }
+      if (data.questType === 'GAME') {
+        next.goldenEggs = current.goldenEggs + Math.max(0, data.eggsEarned)
+      }
       const withLog = pushLog(next, `Quest complete: ${data.questType} (claim available)`)
       await saveState(withLog)
       renderState(withLog)
@@ -222,6 +227,8 @@ const connectQuestSocket = async () => {
       else if (data.questType === 'PR') toast('PR 퀘스트 완료! 받기를 눌러 코인을 받으세요.')
       else if (data.questType === 'ISSUE' || data.questType === 'REVIEW') {
         toast('리뷰 퀘스트 완료! 받기를 눌러 코인을 받으세요.')
+      } else if (data.questType === 'GAME') {
+        toast(`게임 승리! 황금 달걀 +${data.eggsEarned}`)
       }
     })()
   }
@@ -255,6 +262,7 @@ const renderState = (state: PetState) => {
   const percent = Math.max(0, Math.min(100, (info.expInLevel / info.expMax) * 100))
 
   const coins = mounted.shadow.querySelector<HTMLElement>('[data-highton="coins"]')
+  const goldEggs = mounted.shadow.querySelector<HTMLElement>('[data-highton="goldEggs"]')
   const lv = mounted.shadow.querySelector<HTMLElement>('[data-highton="lv"]')
   const expText = mounted.shadow.querySelector<HTMLElement>('[data-highton="expText"]')
   const fill = mounted.shadow.querySelector<HTMLElement>('[data-highton="fill"]')
@@ -262,6 +270,9 @@ const renderState = (state: PetState) => {
   const petImage = mounted.shadow.querySelector<HTMLImageElement>('[data-highton="petImage"]')
   const petHat = mounted.shadow.querySelector<HTMLImageElement>('[data-highton="petHat"]')
   const miniLv = mounted.shadow.querySelector<HTMLElement>('[data-highton="miniHoverLv"]')
+  const miniGoldEggs = mounted.shadow.querySelector<HTMLElement>(
+    '[data-highton="miniHoverGoldEggs"]',
+  )
   const miniCoins = mounted.shadow.querySelector<HTMLElement>('[data-highton="miniHoverCoins"]')
   const miniExp = mounted.shadow.querySelector<HTMLElement>('[data-highton="miniHoverExp"]')
   const miniQuestBadge = mounted.shadow.querySelector<HTMLElement>(
@@ -273,6 +284,7 @@ const renderState = (state: PetState) => {
   const feedButton = mounted.shadow.querySelector<HTMLButtonElement>('[data-highton="feed"]')
 
   if (coins) coins.textContent = formatCompactNumber(normalized.coins)
+  if (goldEggs) goldEggs.textContent = formatCompactNumber(normalized.goldenEggs)
   if (lv) lv.textContent = info.lvLabel
   if (expText) expText.textContent = `${info.expInLevel} / ${info.expMax}`
   if (fill) fill.style.width = `${percent}%`
@@ -332,6 +344,7 @@ const renderState = (state: PetState) => {
 
   requestAnimationFrame(() => updateStageAnchors(0))
   if (miniLv) miniLv.textContent = info.lvLabel
+  if (miniGoldEggs) miniGoldEggs.textContent = formatCompactNumber(normalized.goldenEggs)
   if (miniCoins) miniCoins.textContent = formatCompactNumber(normalized.coins)
   if (miniExp) miniExp.textContent = `${info.expInLevel} / ${info.expMax}`
   if (feedCost) feedCost.textContent = formatCompactNumber(normalized.coins)
@@ -339,6 +352,19 @@ const renderState = (state: PetState) => {
   if (miniPet) {
     miniPet.src = getPetAssetByTier(info.tierKey)
     miniPet.alt = `${info.tierKey} pet`
+  }
+  if (miniQuestBadge && miniPet) {
+    const anchor = HAT_ANCHORS[info.tierKey]
+    const miniRect = miniPet.getBoundingClientRect()
+    const wrap = miniPet.parentElement
+    const wrapRect = wrap?.getBoundingClientRect()
+
+    if (wrapRect && miniRect.width > 0) {
+      const localCenterX = miniRect.left - wrapRect.left + miniRect.width / 2
+      const headTopLocal = miniRect.top - wrapRect.top + miniRect.height * anchor.miniHeadRatio
+      miniQuestBadge.style.left = `${Math.round(localCenterX + anchor.miniBadgeX)}px`
+      miniQuestBadge.style.top = `${Math.round(headTopLocal + anchor.miniBadgeY)}px`
+    }
   }
   if (miniHat && miniPet) {
     const equipped = normalized.equippedItem === 'straw_hat'
@@ -414,14 +440,16 @@ const renderState = (state: PetState) => {
   applyQuestRow('pr1')
   applyQuestRow('review1')
 
-  const hasClaimableQuest =
-    isQuestCompleted(normalized, 'commit1') ||
-    isQuestCompleted(normalized, 'pr1') ||
-    isQuestCompleted(normalized, 'review1')
+  const claimableQuestCount = Math.max(
+    0,
+    normalized.counts.commit + normalized.counts.pr + normalized.counts.review,
+  )
   if (miniQuestBadge) {
-    if (hasClaimableQuest) {
+    if (claimableQuestCount > 0) {
+      miniQuestBadge.textContent = claimableQuestCount > 99 ? '99+' : String(claimableQuestCount)
       miniQuestBadge.setAttribute('data-open', '1')
     } else {
+      miniQuestBadge.textContent = '0'
       miniQuestBadge.removeAttribute('data-open')
     }
   }
@@ -465,6 +493,9 @@ const wireUi = async () => {
   void connectQuestSocket()
 
   let applyShopOpen: (open: boolean) => void = () => {
+    void 0
+  }
+  let applyGameOpen: (open: boolean) => void = () => {
     void 0
   }
 
@@ -532,6 +563,7 @@ const wireUi = async () => {
 
     if (minimized) {
       applyShopOpen(false)
+      applyGameOpen(false)
     }
 
     const rect = mounted.panel.getBoundingClientRect()
@@ -572,6 +604,12 @@ const wireUi = async () => {
   const miniRestoreBtn = mounted.shadow.querySelector<HTMLButtonElement>(
     '[data-highton="miniRestore"]',
   )
+  const gameButton = mounted.shadow.querySelector<HTMLButtonElement>('[data-highton="game"]')
+  const gamePanel = mounted.shadow.querySelector<HTMLElement>('[data-highton="gamePanel"]')
+  const gameCloseButton = mounted.shadow.querySelector<HTMLButtonElement>(
+    '[data-highton="gameClose"]',
+  )
+  const gamePlayButton = mounted.shadow.querySelector<HTMLElement>('[data-highton="gamePlay"]')
   const bagButton = mounted.shadow.querySelector<HTMLButtonElement>('[data-highton="bag"]')
   const shopPanel = mounted.shadow.querySelector<HTMLElement>('[data-highton="shopPanel"]')
   const shopCloseButton = mounted.shadow.querySelector<HTMLButtonElement>(
@@ -582,6 +620,19 @@ const wireUi = async () => {
   )
 
   let shopOpen = false
+  let gameOpen = false
+
+  applyGameOpen = (open: boolean) => {
+    gameOpen = open
+    if (gamePanel) {
+      gamePanel.setAttribute('data-open', open ? '1' : '0')
+    }
+    if (gameButton) {
+      gameButton.setAttribute('aria-pressed', open ? 'true' : 'false')
+    }
+  }
+  applyGameOpen(false)
+
   applyShopOpen = (open: boolean) => {
     shopOpen = open
     if (shopPanel) {
@@ -730,7 +781,80 @@ const wireUi = async () => {
     })()
   })
 
+  gameButton?.addEventListener('click', () => {
+    if (!gameOpen) {
+      applyShopOpen(false)
+    }
+    applyGameOpen(!gameOpen)
+  })
+
+  gameCloseButton?.addEventListener('click', () => {
+    applyGameOpen(false)
+  })
+
+  const playStoneDodge = async () => {
+    const prev = await loadState()
+    const current = ensureToday(prev)
+
+    if (current.coins < GAME_PLAY_COST) {
+      toast(`달걀이 부족해요. 돌 피하기는 달걀 ${GAME_PLAY_COST}개가 필요해요.`)
+      return
+    }
+
+    const paidState: PetState = {
+      ...current,
+      coins: current.coins - GAME_PLAY_COST,
+    }
+    const withCostLog = pushLog(paidState, `Game cost: -${GAME_PLAY_COST} eggs`)
+    await saveState(withCostLog)
+    renderState(withCostLog)
+
+    const response = await runtimeRequest<GameResultResponse>({
+      type: 'HIGHTON_API_GAME_RESULT',
+      result: 'SUCCESS',
+    })
+
+    if (!response.ok) {
+      const fallbackReward = 10
+      const fallbackState: PetState = {
+        ...withCostLog,
+        goldenEggs: withCostLog.goldenEggs + fallbackReward,
+      }
+      const withLog = pushLog(
+        fallbackState,
+        `Game reward (fallback): +${fallbackReward} golden eggs`,
+      )
+      await saveState(withLog)
+      renderState(withLog)
+      toast(`돌 피하기 완료! 달걀 -${GAME_PLAY_COST}, 황금 달걀 +${fallbackReward}`)
+      return
+    }
+
+    const reward = Math.max(0, Math.floor(response.data.eggs_earned))
+    const next: PetState = {
+      ...withCostLog,
+      goldenEggs: withCostLog.goldenEggs + reward,
+    }
+    const withLog = pushLog(next, `Game reward: +${reward} golden eggs`)
+    await saveState(withLog)
+    renderState(withLog)
+    toast(`돌 피하기 완료! 달걀 -${GAME_PLAY_COST}, 황금 달걀 +${reward}`)
+  }
+
+  gamePlayButton?.addEventListener('click', () => {
+    void playStoneDodge()
+  })
+
+  gamePlayButton?.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    event.preventDefault()
+    void playStoneDodge()
+  })
+
   bagButton?.addEventListener('click', () => {
+    if (!shopOpen) {
+      applyGameOpen(false)
+    }
     applyShopOpen(!shopOpen)
   })
 
@@ -752,19 +876,19 @@ const wireUi = async () => {
         const owned = current.ownedItems.includes(itemKey)
 
         if (!owned) {
-          if (current.coins < item.price) {
-            toast('코인이 부족해요')
+          if (current.goldenEggs < item.price) {
+            toast('황금 달걀이 부족해요')
             return
           }
 
           const next: PetState = {
             ...current,
-            coins: current.coins - item.price,
+            goldenEggs: current.goldenEggs - item.price,
             ownedItems: [...current.ownedItems, itemKey],
             equippedItem: itemKey,
           }
 
-          const withLog = pushLog(next, `Shop: bought ${item.name} -${item.price} coin`)
+          const withLog = pushLog(next, `Shop: bought ${item.name} -${item.price} golden eggs`)
           await saveState(withLog)
           renderState(withLog)
           toast(`${item.name} 구매 완료!`)
