@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ButtonHTMLAttributes, type ReactNode } from 'react'
 import styled from '@emotion/styled'
-import { Button, colors, radius, spacing, typography } from './design-system'
+import { colors, radius, spacing, typography } from './design-system'
 import type {
   AuthStatusData,
   BackendLevel,
@@ -11,6 +11,21 @@ import type {
 
 const sendRuntime = async <T,>(message: unknown): Promise<RuntimeResponse<T>> => {
   return (await chrome.runtime.sendMessage(message)) as RuntimeResponse<T>
+}
+
+type ActionTone = 'indigo' | 'emerald' | 'amber' | 'slate'
+
+type ActionButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  tone?: ActionTone
+  children: ReactNode
+}
+
+const ActionButton = ({ tone = 'indigo', children, ...props }: ActionButtonProps) => {
+  return (
+    <ButtonShell type="button" {...props} tone={tone}>
+      {children}
+    </ButtonShell>
+  )
 }
 
 export const App = () => {
@@ -198,7 +213,15 @@ export const App = () => {
     <Container>
       <HeroCard>
         <HeroTop>
-          <Title>GiTama</Title>
+          <TitleWrap>
+            <GitHubMark aria-hidden="true" viewBox="0 0 24 24">
+              <path
+                fill="currentColor"
+                d="M12 2C6.477 2 2 6.477 2 12a9.998 9.998 0 0 0 6.838 9.488c.5.092.682-.217.682-.482 0-.237-.009-.866-.014-1.7-2.782.605-3.369-1.341-3.369-1.341-.454-1.154-1.11-1.462-1.11-1.462-.907-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.944 0-1.092.39-1.986 1.03-2.686-.103-.253-.447-1.273.098-2.654 0 0 .84-.269 2.75 1.026A9.563 9.563 0 0 1 12 6.84c.85.004 1.705.115 2.504.337 1.909-1.295 2.747-1.026 2.747-1.026.547 1.381.203 2.401.1 2.654.642.7 1.029 1.594 1.029 2.686 0 3.843-2.339 4.688-4.566 4.936.359.309.679.92.679 1.854 0 1.337-.012 2.416-.012 2.744 0 .268.18.58.688.481A10.002 10.002 0 0 0 22 12c0-5.523-4.477-10-10-10z"
+              />
+            </GitHubMark>
+            <Title>GitTama</Title>
+          </TitleWrap>
           <LevelPill active={auth.authenticated}>
             {auth.authenticated ? (auth.level ?? 'CONNECTED') : 'OFFLINE'}
           </LevelPill>
@@ -207,9 +230,9 @@ export const App = () => {
           GitHub OAuth 로그인 후 GiTama 백엔드와 연동됩니다. 위젯 토글, webhook 등록, 테스트 액션을
           한 곳에서 관리하세요.
         </Description>
-        <Button type="button" onClick={handleToggleWidget}>
-          GitHub 위젯 토글
-        </Button>
+        <ActionButton tone="slate" onClick={handleToggleWidget}>
+          위젯 표시/숨김
+        </ActionButton>
       </HeroCard>
 
       <SectionCard>
@@ -220,24 +243,32 @@ export const App = () => {
             : '로그인이 필요해요.'}
         </AuthStatus>
         <ActionGrid>
-          <Button type="button" onClick={handleLogin}>
-            GitHub 로그인
-          </Button>
-          <Button type="button" onClick={refreshAuthStatus}>
+          <ActionButton tone="indigo" onClick={handleLogin}>
+            <ButtonLabel>
+              <GitHubMarkSmall aria-hidden="true" viewBox="0 0 24 24">
+                <path
+                  fill="currentColor"
+                  d="M12 2C6.477 2 2 6.477 2 12a9.998 9.998 0 0 0 6.838 9.488c.5.092.682-.217.682-.482 0-.237-.009-.866-.014-1.7-2.782.605-3.369-1.341-3.369-1.341-.454-1.154-1.11-1.462-1.11-1.462-.907-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.944 0-1.092.39-1.986 1.03-2.686-.103-.253-.447-1.273.098-2.654 0 0 .84-.269 2.75 1.026A9.563 9.563 0 0 1 12 6.84c.85.004 1.705.115 2.504.337 1.909-1.295 2.747-1.026 2.747-1.026.547 1.381.203 2.401.1 2.654.642.7 1.029 1.594 1.029 2.686 0 3.843-2.339 4.688-4.566 4.936.359.309.679.92.679 1.854 0 1.337-.012 2.416-.012 2.744 0 .268.18.58.688.481A10.002 10.002 0 0 0 22 12c0-5.523-4.477-10-10-10z"
+                />
+              </GitHubMarkSmall>
+              GitHub 로그인
+            </ButtonLabel>
+          </ActionButton>
+          <ActionButton tone="slate" onClick={refreshAuthStatus}>
             상태 새로고침
-          </Button>
-          <Button type="button" onClick={handleLogout}>
+          </ActionButton>
+          <ActionButton tone="amber" onClick={handleLogout}>
             로그아웃
-          </Button>
+          </ActionButton>
         </ActionGrid>
       </SectionCard>
 
       <SectionCard>
         <SectionTitle>Webhook</SectionTitle>
         <MetaText>1) Org 조회 → 2) 레포 선택 → 3) Webhook 등록</MetaText>
-        <Button type="button" onClick={handleLoadOrgs}>
+        <ActionButton tone="emerald" onClick={handleLoadOrgs}>
           Organization 불러오기
-        </Button>
+        </ActionButton>
         <Select
           value={selectedOrg}
           onChange={(e) => {
@@ -269,20 +300,20 @@ export const App = () => {
             ? `${selectedRepo.private ? 'Private' : 'Public'} • ${selectedRepo.language ?? 'Unknown language'}`
             : '선택된 레포 정보가 없어요.'}
         </RepoMeta>
-        <Button type="button" onClick={handleRegisterWebhook}>
+        <ActionButton tone="indigo" onClick={handleRegisterWebhook}>
           Webhook 등록
-        </Button>
+        </ActionButton>
       </SectionCard>
 
       <SectionCard>
         <SectionTitle>State</SectionTitle>
         <ButtonRow>
-          <Button type="button" onClick={handleAddTestCoins}>
+          <ActionButton tone="emerald" onClick={handleAddTestCoins}>
             테스트 코인 +{TEST_COIN_AMOUNT}
-          </Button>
-          <Button type="button" onClick={handleResetState}>
+          </ActionButton>
+          <ActionButton tone="amber" onClick={handleResetState}>
             Reset
-          </Button>
+          </ActionButton>
         </ButtonRow>
       </SectionCard>
 
@@ -325,12 +356,36 @@ const HeroTop = styled.div`
   gap: ${spacing.sm};
 `
 
+const TitleWrap = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+`
+
 const Title = styled.h1`
   margin: 0;
   font-size: 42px;
   line-height: 1;
   letter-spacing: -0.02em;
   color: #1a2540;
+`
+
+const GitHubMark = styled.svg`
+  width: 32px;
+  height: 32px;
+  color: #111827;
+`
+
+const GitHubMarkSmall = styled.svg`
+  width: 16px;
+  height: 16px;
+  color: currentColor;
+`
+
+const ButtonLabel = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 `
 
 const LevelPill = styled.span<{ active: boolean }>`
@@ -428,4 +483,48 @@ const StatusBanner = styled.p`
   color: #56657d;
   font-size: ${typography.caption};
   word-break: break-word;
+`
+
+const ButtonShell = styled.button<{ tone: ActionTone }>`
+  border: 1px solid transparent;
+  border-radius: ${radius.md};
+  padding: ${spacing.sm} ${spacing.lg};
+  font-size: ${typography.body};
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #ffffff;
+  cursor: pointer;
+  transition:
+    transform 120ms ease,
+    filter 120ms ease,
+    box-shadow 120ms ease;
+
+  background: ${(props) => {
+    if (props.tone === 'emerald') {
+      return 'linear-gradient(135deg, #1fbf8f 0%, #0f8f7b 100%)'
+    }
+    if (props.tone === 'amber') {
+      return 'linear-gradient(135deg, #ff9f43 0%, #ef6c3f 100%)'
+    }
+    if (props.tone === 'slate') {
+      return 'linear-gradient(135deg, #6b7a95 0%, #4f5d78 100%)'
+    }
+    return 'linear-gradient(135deg, #3f7cff 0%, #355fda 100%)'
+  }};
+
+  box-shadow: ${(props) => {
+    if (props.tone === 'emerald') return '0 8px 14px rgba(22, 162, 122, 0.25)'
+    if (props.tone === 'amber') return '0 8px 14px rgba(239, 108, 63, 0.26)'
+    if (props.tone === 'slate') return '0 8px 14px rgba(79, 93, 120, 0.24)'
+    return '0 8px 14px rgba(53, 95, 218, 0.25)'
+  }};
+
+  &:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.04);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
 `
