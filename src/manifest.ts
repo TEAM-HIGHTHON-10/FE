@@ -6,7 +6,7 @@ export default defineManifest({
   short_name: 'GitTama',
   description: 'GitHub에서 귀여운 펫을 키우는 데브 다마고치 위젯',
   version: '0.1.0',
-  permissions: ['tabs', 'storage'],
+  permissions: ['tabs', 'storage', 'scripting'],
   action: {
     default_title: 'GitTama',
     default_popup: 'index.html',
@@ -25,7 +25,7 @@ export default defineManifest({
     service_worker: 'src/background.ts',
     type: 'module',
   },
-  host_permissions: ['*://github.com/*', '*://*.github.com/*'],
+  host_permissions: ['*://github.com/*', '*://*.github.com/*', 'https://dev.taisu.site/*'],
   content_scripts: [
     {
       matches: ['*://github.com/*', '*://*.github.com/*'],
