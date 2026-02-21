@@ -118,10 +118,15 @@ const fetchWithAuth = async <T>(path: string, init?: RequestInit): Promise<T> =>
     headers.set('Content-Type', 'application/json')
   }
 
-  const res = await fetch(`${BACKEND_BASE_URL}${path}`, {
-    ...init,
-    headers,
-  })
+  let res: Response
+  try {
+    res = await fetch(`${BACKEND_BASE_URL}${path}`, {
+      ...init,
+      headers,
+    })
+  } catch {
+    throw new Error('서버 연결에 실패했어요. 잠시 후 다시 시도해주세요.')
+  }
 
   if (!res.ok) {
     const { message, status } = await parseApiError(res)
@@ -158,19 +163,70 @@ const parseJsonText = (text: string): unknown => {
   }
 }
 
+const parseSessionFromLooseText = (text: string): AuthSession | null => {
+  const tokenMatch = text.match(/"token"\s*:\s*"([^"]+)"/)
+  const usernameMatch = text.match(/"username"\s*:\s*"([^"]+)"/)
+  const xpMatch = text.match(/"xp"\s*:\s*(\d+)/)
+  const levelMatch = text.match(/"level"\s*:\s*"([^"]+)"/)
+
+  if (!tokenMatch || !usernameMatch || !xpMatch || !levelMatch) return null
+
+  return parseAuthSessionPayload({
+    token: tokenMatch[1],
+    username: usernameMatch[1],
+    xp: Number(xpMatch[1]),
+    level: levelMatch[1],
+  })
+}
+
 const tryReadSessionFromCallbackTab = async (tabId: number): Promise<AuthSession | null> => {
   try {
     const result = await chrome.scripting.executeScript({
-      target: { tabId },
-      func: () => document.body?.innerText ?? '',
+      target: { tabId, allFrames: true },
+      func: () => {
+        const bodyText = document.body?.innerText ?? ''
+        const bodyRaw = document.body?.textContent ?? ''
+        const docText = document.documentElement?.innerText ?? ''
+        const docRaw = document.documentElement?.textContent ?? ''
+        const preText = Array.from(document.querySelectorAll('pre'))
+          .map((el) => el.textContent ?? '')
+          .join('\n')
+
+        return [bodyText, bodyRaw, docText, docRaw, preText]
+      },
     })
-    const text = result[0]?.result
-    if (typeof text !== 'string') return null
-    const parsed = parseJsonText(text)
-    return parseAuthSessionPayload(parsed)
+
+    for (const frameResult of result) {
+      const texts = frameResult.result
+      if (!Array.isArray(texts)) continue
+
+      for (const text of texts) {
+        if (typeof text !== 'string' || text.trim().length === 0) continue
+
+        const parsed = parseJsonText(text)
+        const parsedSession = parseAuthSessionPayload(parsed)
+        if (parsedSession) return parsedSession
+
+        const looseSession = parseSessionFromLooseText(text)
+        if (looseSession) return looseSession
+      }
+    }
+
+    return null
   } catch {
     return null
   }
+}
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+
+const waitForSessionFromCallbackTab = async (tabId: number): Promise<AuthSession | null> => {
+  for (let i = 0; i < 60; i += 1) {
+    const session = await tryReadSessionFromCallbackTab(tabId)
+    if (session) return session
+    await sleep(200)
+  }
+  return null
 }
 
 const startOAuthLogin = async (): Promise<AuthSession> => {
@@ -186,6 +242,7 @@ const startOAuthLogin = async (): Promise<AuthSession> => {
 
   return await new Promise<AuthSession>((resolve, reject) => {
     let done = false
+    let handlingCallback = false
 
     const cleanup = () => {
       chrome.tabs.onUpdated.removeListener(onUpdated)
@@ -213,6 +270,12 @@ const startOAuthLogin = async (): Promise<AuthSession> => {
       if (tabId !== loginTabId) return
       const currentUrl = changeInfo.url ?? updatedTab.url
       if (!currentUrl || !currentUrl.startsWith(OAUTH_CALLBACK_URL)) return
+      if (handlingCallback) return
+
+      const isCallbackReady = changeInfo.status === 'complete' || updatedTab.status === 'complete'
+      if (!isCallbackReady) return
+
+      handlingCallback = true
 
       void (async () => {
         try {
@@ -220,7 +283,7 @@ const startOAuthLogin = async (): Promise<AuthSession> => {
             await chrome.tabs.update(previousTabId, { active: true }).catch(() => void 0)
           }
 
-          const fromTab = await tryReadSessionFromCallbackTab(loginTabId)
+          const fromTab = await waitForSessionFromCallbackTab(loginTabId)
 
           if (!fromTab) {
             throw new Error(
@@ -236,6 +299,8 @@ const startOAuthLogin = async (): Promise<AuthSession> => {
           const message =
             error instanceof Error ? error.message : '로그인 처리 중 오류가 발생했어요.'
           settle(() => reject(new Error(message)))
+        } finally {
+          handlingCallback = false
         }
       })()
     }
