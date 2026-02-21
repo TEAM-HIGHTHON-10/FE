@@ -46,9 +46,10 @@ const MAX_TOTAL_EXP = (MAX_LEVEL_INDEX + 1) * EXP_PER_LEVEL
 const COMMIT_COOLDOWN_MS = 60_000
 const FEED_COST = 10
 const FEED_EXP = 10
-const GITHUB_POLL_MS = 180_000
+const GITHUB_POLL_MS = 30_000
 const GITHUB_DETECTION_KEY = 'highton_github_detection_v1'
 const MAX_SEEN_EVENT_IDS = 120
+const INITIAL_SYNC_REWARD_COUNT = 1
 
 type GithubEventName = 'PushEvent' | 'PullRequestEvent' | 'PullRequestReviewEvent'
 
@@ -348,6 +349,17 @@ const detectGitHubActivity = async () => {
 
   const stored = await loadDetectionState()
   if (!stored || !stored.initialized || stored.user !== login) {
+    const initialTargets = [...relevant].slice(0, INITIAL_SYNC_REWARD_COUNT).reverse()
+    for (const event of initialTargets) {
+      const mapped = mapGithubEventToSimEvent(event)
+      if (!mapped) continue
+      await applySimEventReward(mapped, {
+        ignoreCommitCooldown: true,
+        showToast: true,
+        sourceLabel: 'GitHub',
+      })
+    }
+
     await saveDetectionState({
       initialized: true,
       user: login,
@@ -381,14 +393,37 @@ const detectGitHubActivity = async () => {
 }
 
 let githubDetectionIntervalId: number | null = null
+let githubDetectionRunning = false
+
+const runGitHubDetection = async () => {
+  if (githubDetectionRunning) return
+  githubDetectionRunning = true
+  try {
+    await detectGitHubActivity()
+  } finally {
+    githubDetectionRunning = false
+  }
+}
+
+const handleVisibilityChange = () => {
+  if (document.visibilityState !== 'visible') return
+  void runGitHubDetection()
+}
+
+const handleWindowFocus = () => {
+  void runGitHubDetection()
+}
 
 const startGitHubDetection = () => {
   if (githubDetectionIntervalId !== null) return
 
-  void detectGitHubActivity()
+  void runGitHubDetection()
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  window.addEventListener('focus', handleWindowFocus)
+
   githubDetectionIntervalId = window.setInterval(() => {
     if (document.visibilityState !== 'visible') return
-    void detectGitHubActivity()
+    void runGitHubDetection()
   }, GITHUB_POLL_MS)
 }
 
@@ -396,6 +431,8 @@ const stopGitHubDetection = () => {
   if (githubDetectionIntervalId === null) return
   window.clearInterval(githubDetectionIntervalId)
   githubDetectionIntervalId = null
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  window.removeEventListener('focus', handleWindowFocus)
 }
 
 const loadState = async (): Promise<PetState> => {
