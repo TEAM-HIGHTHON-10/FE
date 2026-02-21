@@ -183,8 +183,9 @@ const getLevelInfo = (totalExp: number) => {
   const expInLevel = isMaxed ? EXP_PER_LEVEL : clampedTotal % EXP_PER_LEVEL
 
   return {
-    lv: `${tier.key}${subLevel}`,
+    lvLabel: `LV ${subLevel}. ${tier.key}`,
     tierKey: tier.key,
+    subLevel,
     expInLevel,
     expMax: EXP_PER_LEVEL,
   }
@@ -576,7 +577,7 @@ const renderState = (state: PetState) => {
   const miniHat = mounted.shadow.querySelector<HTMLImageElement>('[data-highton="miniHat"]')
 
   if (coins) coins.textContent = formatCompactNumber(normalized.coins)
-  if (lv) lv.textContent = `LV. ${info.lv}`
+  if (lv) lv.textContent = info.lvLabel
   if (expText) expText.textContent = `${info.expInLevel} / ${info.expMax}`
   if (fill) fill.style.width = `${percent}%`
   if (bar) bar.setAttribute('aria-valuenow', String(info.expInLevel))
@@ -634,7 +635,7 @@ const renderState = (state: PetState) => {
   }
 
   requestAnimationFrame(() => updateStageAnchors(0))
-  if (miniLv) miniLv.textContent = `LV. ${info.lv}`
+  if (miniLv) miniLv.textContent = info.lvLabel
   if (miniCoins) miniCoins.textContent = formatCompactNumber(normalized.coins)
   if (miniExp) miniExp.textContent = `${info.expInLevel} / ${info.expMax}`
   if (miniPet) {
@@ -1509,7 +1510,7 @@ const mountWidget = () => {
 
       <div class="miniHoverCard" data-highton="miniHover">
         <div class="miniMeta">
-          <div class="miniLv" data-highton="miniHoverLv">LV. Newbie1</div>
+          <div class="miniLv" data-highton="miniHoverLv">LV 1. Newbie</div>
           <div class="miniCoins">
             <span class="miniLabel">Coin</span>
             <span class="coinGlyph" aria-hidden="true"></span>
@@ -1554,7 +1555,7 @@ const mountWidget = () => {
 
     <section class="status" aria-label="status">
       <div class="statusLeft">
-        <div class="lv" data-highton="lv">LV. Newbie1</div>
+        <div class="lv" data-highton="lv">LV 1. Newbie</div>
         <div class="bar" data-highton="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
           <div class="fill" data-highton="fill" style="width: 0%"></div>
         </div>
