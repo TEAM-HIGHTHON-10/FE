@@ -2,21 +2,13 @@ import styled from '@emotion/styled'
 import { Button, colors, radius, spacing, typography } from './design-system'
 
 export const App = () => {
+  const TEST_COIN_AMOUNT = 200
+
   const handleToggleWidget = async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
     if (!tab?.id) return
 
     await chrome.tabs.sendMessage(tab.id, { type: 'HIGHTON_TOGGLE_WIDGET' })
-  }
-
-  const handleSimulateEvent = async (eventType: 'COMMIT' | 'PULL_REQUEST' | 'REVIEW') => {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-    if (!tab?.id) return
-
-    await chrome.tabs.sendMessage(tab.id, {
-      type: 'HIGHTON_SIMULATE_EVENT',
-      eventType,
-    })
   }
 
   const handleResetState = async () => {
@@ -28,28 +20,30 @@ export const App = () => {
     })
   }
 
+  const handleAddTestCoins = async () => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+    if (!tab?.id) return
+
+    await chrome.tabs.sendMessage(tab.id, {
+      type: 'HIGHTON_ADD_TEST_COINS',
+      amount: TEST_COIN_AMOUNT,
+    })
+  }
+
   return (
     <Container>
-      <Title>Highton</Title>
+      <Title>GitTama</Title>
       <Description>
-        GitHub 페이지에서는 강아지 위젯이 자동으로 뜨고, 아래 버튼으로 숨김/표시를 토글할 수 있어.
+        GitHub 페이지에서 펫 위젯이 자동으로 떠요. 아래 버튼으로 숨김/표시를 토글할 수 있어요.
       </Description>
       <Button type="button" onClick={handleToggleWidget}>
         GitHub 위젯 토글
       </Button>
 
-      <SectionTitle>Scenario (No Backend)</SectionTitle>
+      <SectionTitle>State</SectionTitle>
       <ButtonRow>
-        <Button type="button" onClick={() => handleSimulateEvent('COMMIT')}>
-          커밋
-        </Button>
-        <Button type="button" onClick={() => handleSimulateEvent('PULL_REQUEST')}>
-          PR
-        </Button>
-      </ButtonRow>
-      <ButtonRow>
-        <Button type="button" onClick={() => handleSimulateEvent('REVIEW')}>
-          Review
+        <Button type="button" onClick={handleAddTestCoins}>
+          테스트 코인 +{TEST_COIN_AMOUNT}
         </Button>
         <Button type="button" onClick={handleResetState}>
           Reset
@@ -92,7 +86,7 @@ const SectionTitle = styled.h2`
 
 const ButtonRow = styled.div`
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: ${spacing.sm};
   margin-top: ${spacing.sm};
 `

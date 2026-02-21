@@ -2,11 +2,13 @@ import { ICON_DATA_URLS } from '../assets/iconDataUrls'
 
 const ROOT_ID = 'highton-github-widget-root'
 const STORAGE_KEY = 'highton_pet_state_v2'
-const COLLAPSE_KEY = 'highton_widget_collapsed'
+const MINIMIZE_KEY = 'highton_widget_minimized'
+const POSITION_KEY = 'highton_widget_position'
 
 type Mood = 'GOOD' | 'NORMAL' | 'BAD'
 type SimEvent = 'COMMIT' | 'PULL_REQUEST' | 'REVIEW'
 type QuestKey = 'commit1' | 'pr1' | 'review1'
+type AccessoryKey = 'straw_hat'
 
 type DailyCounts = {
   commit: number
@@ -33,6 +35,13 @@ type PetState = {
   counts: DailyCounts
   quests: QuestState[]
   logs: LogItem[]
+  ownedItems: AccessoryKey[]
+  equippedItem: AccessoryKey | null
+}
+
+type WidgetPosition = {
+  left: number
+  top: number
 }
 
 const DEBUG = false
@@ -46,40 +55,11 @@ const MAX_TOTAL_EXP = (MAX_LEVEL_INDEX + 1) * EXP_PER_LEVEL
 const COMMIT_COOLDOWN_MS = 60_000
 const FEED_COST = 10
 const FEED_EXP = 10
-const GITHUB_POLL_MS = 30_000
-const GITHUB_DETECTION_KEY = 'highton_github_detection_v1'
-const MAX_SEEN_EVENT_IDS = 120
-const INITIAL_SYNC_REWARD_COUNT = 1
+const TEST_COIN_AMOUNT = 200
 
-type GithubEventName = 'PushEvent' | 'PullRequestEvent' | 'PullRequestReviewEvent'
-
-type GithubEventPayload = {
-  action?: unknown
-}
-
-type GithubEventActor = {
-  login?: unknown
-}
-
-type GithubRawEvent = {
-  id?: unknown
-  type?: unknown
-  actor?: unknown
-  payload?: unknown
-}
-
-type GithubEvent = {
-  id: string
-  type: GithubEventName
-  actorLogin: string
-  payload: GithubEventPayload
-}
-
-type GithubDetectionState = {
-  initialized: boolean
-  user: string
-  seenIds: string[]
-}
+const SHOP_ITEMS: Array<{ key: AccessoryKey; name: string; price: number }> = [
+  { key: 'straw_hat', name: '밀짚모자', price: 100 },
+]
 
 const QUESTS: Record<QuestKey, { title: string; rewardCoins: number }> = {
   commit1: { title: 'commit 1회 하기', rewardCoins: 10 },
@@ -115,6 +95,8 @@ const DEFAULT_STATE = (): PetState => {
       { key: 'review1', claimed: false },
     ],
     logs: [],
+    ownedItems: [],
+    equippedItem: null,
   }
 }
 
@@ -132,6 +114,22 @@ const improveMood = (mood: Mood): Mood => {
 
 const clampExp = (exp: number) => {
   return Math.max(0, Math.min(MAX_TOTAL_EXP, exp))
+}
+
+const clampPosition = (
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+): WidgetPosition => {
+  const margin = 8
+  const maxLeft = Math.max(margin, window.innerWidth - width - margin)
+  const maxTop = Math.max(margin, window.innerHeight - height - margin)
+
+  return {
+    left: Math.min(Math.max(left, margin), maxLeft),
+    top: Math.min(Math.max(top, margin), maxTop),
+  }
 }
 
 const ensureToday = (state: PetState): PetState => {
@@ -161,6 +159,19 @@ const pushLog = (state: PetState, text: string): PetState => {
   return { ...state, logs: nextLogs }
 }
 
+const formatCompactNumber = (value: number) => {
+  const n = Math.max(0, Math.floor(value))
+  if (n < 1000) return String(n)
+  if (n < 1_000_000) {
+    const k = n / 1000
+    const rounded = k >= 10 ? Math.round(k) : Math.round(k * 10) / 10
+    return `${rounded}k`
+  }
+  const m = n / 1_000_000
+  const rounded = m >= 10 ? Math.round(m) : Math.round(m * 10) / 10
+  return `${rounded}m`
+}
+
 const getLevelInfo = (totalExp: number) => {
   const clampedTotal = clampExp(totalExp)
   const rawIndex = Math.floor(clampedTotal / EXP_PER_LEVEL)
@@ -186,104 +197,172 @@ const getPetAssetByTier = (tierKey: (typeof TIERS)[number]['key']) => {
   return ICON_DATA_URLS.newbie
 }
 
-const getGitHubUserLogin = () => {
-  const meta = document.querySelector<HTMLMetaElement>('meta[name="user-login"]')
-  const fromMeta = meta?.content?.trim()
-  if (fromMeta) return fromMeta
+type TierKey = (typeof TIERS)[number]['key']
 
-  const bodyLogin = document.body?.getAttribute('data-logged-in-user')?.trim()
-  if (bodyLogin) return bodyLogin
-
-  return ''
+type HatAnchor = {
+  x: number
+  y: number
+  headRatio: number
+  hatWidth: number
+  toastGap: number
+  miniX: number
+  miniY: number
+  miniHeadRatio: number
+  miniHatWidth: number
 }
 
-const parseGithubEvent = (item: unknown): GithubEvent | null => {
-  if (!item || typeof item !== 'object') return null
-
-  const raw = item as GithubRawEvent
-  const id = raw.id
-  const type = raw.type
-  const actor = raw.actor as GithubEventActor | undefined
-  const actorLogin = actor?.login
-
-  if (typeof id !== 'string') return null
-  if (type !== 'PushEvent' && type !== 'PullRequestEvent' && type !== 'PullRequestReviewEvent') {
-    return null
-  }
-  if (typeof actorLogin !== 'string') return null
-
-  return {
-    id,
-    type,
-    actorLogin,
-    payload:
-      raw.payload && typeof raw.payload === 'object' ? (raw.payload as GithubEventPayload) : {},
-  }
+const HAT_ANCHORS: Record<TierKey, HatAnchor> = {
+  Newbie: {
+    x: 3,
+    y: 10,
+    headRatio: 0.4,
+    hatWidth: 55,
+    toastGap: 10,
+    miniX: 2,
+    miniY: 5,
+    miniHeadRatio: 0.42,
+    miniHatWidth: 34,
+  },
+  Junior: {
+    x: -5,
+    y: 30,
+    headRatio: 0.32,
+    hatWidth: 55,
+    toastGap: 10,
+    miniX: -2,
+    miniY: 10,
+    miniHeadRatio: 0.36,
+    miniHatWidth: 38,
+  },
+  Mid: {
+    x: -10,
+    y: 10,
+    headRatio: 0.28,
+    hatWidth: 100,
+    toastGap: 20,
+    miniX: -5,
+    miniY: 1,
+    miniHeadRatio: 0.32,
+    miniHatWidth: 60,
+  },
+  Senior: {
+    x: -25,
+    y: 1,
+    headRatio: 0.22,
+    hatWidth: 130,
+    toastGap: 15,
+    miniX: -15,
+    miniY: -5,
+    miniHeadRatio: 0.26,
+    miniHatWidth: 70,
+  },
 }
 
-const mapGithubEventToSimEvent = (event: GithubEvent): SimEvent | null => {
-  if (event.type === 'PushEvent') return 'COMMIT'
+const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n))
 
-  if (event.type === 'PullRequestEvent') {
-    const action = event.payload.action
-    if (action === 'opened') return 'PULL_REQUEST'
-    return null
-  }
-
-  if (event.type === 'PullRequestReviewEvent') {
-    return 'REVIEW'
-  }
-
-  return null
+const PET_TALKS: Record<TierKey, Record<Mood, string[]>> = {
+  Newbie: {
+    GOOD: [
+      '웃어주셔서 저도 꼬리가 절로 흔들려요!',
+      '오늘은 함께 있는 것만으로도 참 좋아요!',
+      '햇살 좋은 날 같아서 마음이 따뜻해져요.',
+      '눈을 마주치면 기분이 몽글몽글해져요.',
+      '정말 잘하고 계세요. 오늘도 행복 스탬프 하나 찍어요!',
+    ],
+    NORMAL: [
+      '괜찮아요. 천천히 하셔도 제가 옆에 있을게요.',
+      '잠깐 숨 고르시고 제 머리도 한번 쓰다듬어주세요!',
+      '우리 페이스대로 천천히 걸어가면 돼요.',
+      '지금 이 순간도 충분히 소중해요.',
+      '조용히 함께 있는 것만으로도 힘이 돼요.',
+    ],
+    BAD: [
+      '오늘 마음이 무거우시면 제 곁에서 잠깐 쉬어가세요.',
+      '괜찮아요. 당신의 속도는 언제나 옳아요.',
+      '힘드시면 제가 먼저 꼭 안아드릴게요.',
+      '천천히 하셔도 괜찮아요. 저는 기다릴 수 있어요.',
+      '표정이 다시 밝아질 때까지 옆에 있을게요.',
+    ],
+  },
+  Junior: {
+    GOOD: [
+      '함께 있으면 하루가 반짝반짝 빛나요!',
+      '좋은 에너지가 느껴져서 저도 신나요!',
+      '지금 분위기가 정말 포근하고 좋아요.',
+      '작은 성취도 함께 기뻐하고 싶어요!',
+      '오늘은 기분 좋은 바람이 부는 날 같아요!',
+    ],
+    NORMAL: [
+      '저희 차분하게 하나씩 해보아요.',
+      '서두르지 않으셔도 괜찮아요. 저는 늘 당신 편이에요.',
+      '따뜻한 차 한 모금 같은 순간이에요.',
+      '오늘도 우리만의 리듬으로 가보아요.',
+      '평온해 보이시면 저도 행복해요.',
+    ],
+    BAD: [
+      '괜찮아요. 오늘은 제가 마음을 지켜드릴게요.',
+      '잠깐 눈 감고 쉬셔도 돼요. 저는 여기 있어요.',
+      '흔들리는 날에는 더 천천히 걸으면 돼요.',
+      '너무 애쓰지 않으셔도 돼요. 충분히 잘하고 계세요.',
+      '힘드실 땐 제 이름을 한번 불러주세요.',
+    ],
+  },
+  Mid: {
+    GOOD: [
+      '눈빛이 반짝여서 저도 덩달아 행복해요!',
+      '오늘 모습이 정말 멋지고 따뜻해 보여요.',
+      '지금 이 순간을 오래 기억하고 싶어요!',
+      '함께 있는 시간이 큰 힘이 돼요.',
+      '우리의 하루가 예쁘게 차곡차곡 쌓이고 있어요.',
+    ],
+    NORMAL: [
+      '심호흡 한 번 하시고, 다시 함께 가요.',
+      '하루에 작은 미소를 더해드릴게요.',
+      '차분한 오늘도 충분히 아름다워요.',
+      '곁을 지키는 게 제 가장 큰 일상이에요.',
+      '함께라면 평범한 순간도 특별해져요.',
+    ],
+    BAD: [
+      '마음이 지치실 땐 제 옆에 기대셔도 돼요.',
+      '오늘은 버텨낸 것만으로도 충분해요.',
+      '괜찮아질 때까지 조용히 기다릴게요.',
+      '조금 울적해도 우리는 함께예요.',
+      '힘드시면 잠깐 멈춰도 돼요. 저는 도망가지 않아요.',
+    ],
+  },
+  Senior: {
+    GOOD: [
+      '함께해 주셔서 제 세상도 단단해져요.',
+      '오늘 모습은 보는 것만으로도 힘이 돼요.',
+      '함께 걸어온 시간들이 반짝이고 있어요.',
+      '그 미소를 오래오래 지켜드리고 싶어요.',
+      '지금처럼만 우리 행복하게 가요.',
+    ],
+    NORMAL: [
+      '천천히, 그러나 따뜻하게. 그게 우리 방식이에요!',
+      '편안해 보이시면 저도 마음이 놓여요.',
+      '조용히 옆에 앉아 있는 지금이 참 좋아요.',
+      '오늘도 충분히 멋진 하루예요.',
+      '서두르지 않아도 충분히 잘 해내실 수 있어요.',
+    ],
+    BAD: [
+      '지친 마음은 제가 살살 달래드릴게요.',
+      '오늘은 아무것도 하지 않으셔도 괜찮아요.',
+      '다시 웃으실 때까지 곁을 지킬게요.',
+      '힘이 빠지실 땐 제 온기로 쉬어가세요.',
+      '괜찮아요. 우리는 언제든 다시 시작할 수 있어요.',
+    ],
+  },
 }
 
-const loadDetectionState = async (): Promise<GithubDetectionState | null> => {
-  const result = await chrome.storage.local.get([GITHUB_DETECTION_KEY])
-  const raw = result[GITHUB_DETECTION_KEY] as unknown
-  if (!raw || typeof raw !== 'object') return null
-
-  const initialized = (raw as { initialized?: unknown }).initialized
-  const user = (raw as { user?: unknown }).user
-  const seenIdsRaw = (raw as { seenIds?: unknown }).seenIds
-
-  if (typeof initialized !== 'boolean' || typeof user !== 'string' || !Array.isArray(seenIdsRaw)) {
-    return null
-  }
-
-  const seenIds = seenIdsRaw
-    .filter((x): x is string => typeof x === 'string')
-    .slice(0, MAX_SEEN_EVENT_IDS)
-
-  return { initialized, user, seenIds }
+const pickRandom = <T>(arr: T[]): T => {
+  return arr[Math.floor(Math.random() * arr.length)]
 }
 
-const saveDetectionState = async (state: GithubDetectionState): Promise<void> => {
-  await chrome.storage.local.set({ [GITHUB_DETECTION_KEY]: state })
-}
-
-const fetchGitHubEvents = async (user: string): Promise<GithubEvent[]> => {
-  const fetchEvents = async (url: string) => {
-    const response = await fetch(url, {
-      headers: {
-        Accept: 'application/vnd.github+json',
-      },
-      credentials: 'include',
-    })
-
-    if (!response.ok) return []
-    const json = (await response.json()) as unknown
-    if (!Array.isArray(json)) return []
-    return json.map(parseGithubEvent).filter((x): x is GithubEvent => x !== null)
-  }
-
-  const primary = await fetchEvents(
-    `https://api.github.com/users/${encodeURIComponent(user)}/events?per_page=30`,
-  )
-  if (primary.length > 0) return primary
-
-  return fetchEvents(
-    `https://api.github.com/users/${encodeURIComponent(user)}/events/public?per_page=30`,
-  )
+const getPetTalkMessage = (state: PetState) => {
+  const tierKey = getLevelInfo(state.exp).tierKey
+  const moodLine = pickRandom(PET_TALKS[tierKey][state.mood])
+  return moodLine
 }
 
 const applySimEventReward = async (
@@ -333,106 +412,6 @@ const applySimEventReward = async (
   if (options.showToast) {
     toast(`${reward.label} +${awardedExp} EXP`)
   }
-}
-
-const detectGitHubActivity = async () => {
-  const login = getGitHubUserLogin()
-  if (!login) return
-
-  const allEvents = await fetchGitHubEvents(login)
-  const relevant = allEvents.filter((event) => {
-    if (event.actorLogin !== login) return false
-    return mapGithubEventToSimEvent(event) !== null
-  })
-
-  if (relevant.length === 0) return
-
-  const stored = await loadDetectionState()
-  if (!stored || !stored.initialized || stored.user !== login) {
-    const initialTargets = [...relevant].slice(0, INITIAL_SYNC_REWARD_COUNT).reverse()
-    for (const event of initialTargets) {
-      const mapped = mapGithubEventToSimEvent(event)
-      if (!mapped) continue
-      await applySimEventReward(mapped, {
-        ignoreCommitCooldown: true,
-        showToast: true,
-        sourceLabel: 'GitHub',
-      })
-    }
-
-    await saveDetectionState({
-      initialized: true,
-      user: login,
-      seenIds: relevant.map((event) => event.id).slice(0, MAX_SEEN_EVENT_IDS),
-    })
-    return
-  }
-
-  const unseen = relevant.filter((event) => !stored.seenIds.includes(event.id))
-  const chronological = [...unseen].reverse()
-
-  for (const event of chronological) {
-    const mapped = mapGithubEventToSimEvent(event)
-    if (!mapped) continue
-    await applySimEventReward(mapped, {
-      ignoreCommitCooldown: true,
-      showToast: true,
-      sourceLabel: 'GitHub',
-    })
-  }
-
-  const nextSeenIds = [...new Set([...relevant.map((event) => event.id), ...stored.seenIds])].slice(
-    0,
-    MAX_SEEN_EVENT_IDS,
-  )
-  await saveDetectionState({
-    initialized: true,
-    user: login,
-    seenIds: nextSeenIds,
-  })
-}
-
-let githubDetectionIntervalId: number | null = null
-let githubDetectionRunning = false
-
-const runGitHubDetection = async () => {
-  if (githubDetectionRunning) return
-  githubDetectionRunning = true
-  try {
-    await detectGitHubActivity()
-  } finally {
-    githubDetectionRunning = false
-  }
-}
-
-const handleVisibilityChange = () => {
-  if (document.visibilityState !== 'visible') return
-  void runGitHubDetection()
-}
-
-const handleWindowFocus = () => {
-  void runGitHubDetection()
-}
-
-const startGitHubDetection = () => {
-  if (githubDetectionIntervalId !== null) return
-
-  void runGitHubDetection()
-  document.addEventListener('visibilitychange', handleVisibilityChange)
-  window.addEventListener('focus', handleWindowFocus)
-
-  githubDetectionIntervalId = window.setInterval(() => {
-    if (document.visibilityState !== 'visible') return
-    void runGitHubDetection()
-  }, GITHUB_POLL_MS)
-}
-
-const stopGitHubDetection = () => {
-  if (githubDetectionIntervalId === null) return
-  window.clearInterval(githubDetectionIntervalId)
-  githubDetectionIntervalId = null
-  document.removeEventListener('visibilitychange', handleVisibilityChange)
-  window.removeEventListener('focus', handleWindowFocus)
 }
 
 const loadState = async (): Promise<PetState> => {
@@ -506,6 +485,15 @@ const loadState = async (): Promise<PetState> => {
         .slice(0, 3)
     : []
 
+  const ownedItemsRaw = (raw as { ownedItems?: unknown }).ownedItems
+  const ownedItems: AccessoryKey[] = Array.isArray(ownedItemsRaw)
+    ? ownedItemsRaw.filter((x): x is AccessoryKey => x === 'straw_hat')
+    : []
+
+  const equippedItemRaw = (raw as { equippedItem?: unknown }).equippedItem
+  const equippedItem: AccessoryKey | null =
+    equippedItemRaw === 'straw_hat' && ownedItems.includes('straw_hat') ? equippedItemRaw : null
+
   const state: PetState = {
     coins,
     exp: clampExp(exp),
@@ -515,6 +503,8 @@ const loadState = async (): Promise<PetState> => {
     counts,
     quests,
     logs,
+    ownedItems,
+    equippedItem,
   }
 
   const normalized = ensureToday(state)
@@ -538,14 +528,25 @@ const getMounted = () => {
   return { root, shadow, panel }
 }
 
+let toastTimerId: number | null = null
+
 const toast = (text: string) => {
   const mounted = getMounted()
   if (!mounted) return
   const el = mounted.shadow.querySelector<HTMLElement>('[data-highton="toast"]')
   if (!el) return
+
+  if (toastTimerId !== null) {
+    window.clearTimeout(toastTimerId)
+    toastTimerId = null
+  }
+
   el.textContent = text
   el.setAttribute('data-open', '1')
-  window.setTimeout(() => el.removeAttribute('data-open'), 1400)
+  toastTimerId = window.setTimeout(() => {
+    el.removeAttribute('data-open')
+    toastTimerId = null
+  }, 2600)
 }
 
 const renderState = (state: PetState) => {
@@ -562,8 +563,14 @@ const renderState = (state: PetState) => {
   const fill = mounted.shadow.querySelector<HTMLElement>('[data-highton="fill"]')
   const bar = mounted.shadow.querySelector<HTMLElement>('[data-highton="bar"]')
   const petImage = mounted.shadow.querySelector<HTMLImageElement>('[data-highton="petImage"]')
+  const petHat = mounted.shadow.querySelector<HTMLImageElement>('[data-highton="petHat"]')
+  const miniLv = mounted.shadow.querySelector<HTMLElement>('[data-highton="miniHoverLv"]')
+  const miniCoins = mounted.shadow.querySelector<HTMLElement>('[data-highton="miniHoverCoins"]')
+  const miniExp = mounted.shadow.querySelector<HTMLElement>('[data-highton="miniHoverExp"]')
+  const miniPet = mounted.shadow.querySelector<HTMLImageElement>('[data-highton="miniPet"]')
+  const miniHat = mounted.shadow.querySelector<HTMLImageElement>('[data-highton="miniHat"]')
 
-  if (coins) coins.textContent = String(normalized.coins)
+  if (coins) coins.textContent = formatCompactNumber(normalized.coins)
   if (lv) lv.textContent = `LV. ${info.lv}`
   if (expText) expText.textContent = `${info.expInLevel} / ${info.expMax}`
   if (fill) fill.style.width = `${percent}%`
@@ -572,6 +579,115 @@ const renderState = (state: PetState) => {
     petImage.src = getPetAssetByTier(info.tierKey)
     petImage.alt = `${info.tierKey} pet`
   }
+  const stage = mounted.shadow.querySelector<HTMLElement>('[data-highton="toggle-area"]')
+  const petTalkTarget = mounted.shadow.querySelector<HTMLElement>('[data-highton="petTalk"]')
+
+  const updateStageAnchors = (attempt = 0) => {
+    if (!stage || !petTalkTarget || !petImage) return
+
+    const stageRect = stage.getBoundingClientRect()
+    const petRect = petTalkTarget.getBoundingClientRect()
+    const imgRect = petImage.getBoundingClientRect()
+
+    if (stageRect.width <= 0 || petRect.width <= 0 || imgRect.width <= 0) {
+      if (attempt < 8) {
+        requestAnimationFrame(() => updateStageAnchors(attempt + 1))
+      }
+      return
+    }
+
+    const anchor = HAT_ANCHORS[info.tierKey]
+    const equipped = normalized.equippedItem === 'straw_hat'
+    const hatW = anchor.hatWidth
+    const hatH = Math.round(hatW * 0.62)
+
+    const headCenterX = imgRect.left - stageRect.left + imgRect.width / 2 + anchor.x
+    const headTopY = imgRect.top - stageRect.top + imgRect.height * anchor.headRatio
+    const toastTop = equipped ? headTopY - hatH - anchor.toastGap : headTopY - 42
+
+    mounted.panel.style.setProperty('--toast-left', `${Math.round(headCenterX)}px`)
+    mounted.panel.style.setProperty('--toast-top', `${Math.round(clamp(toastTop, 10, 130))}px`)
+
+    if (!petHat) return
+
+    if (!equipped) {
+      petHat.style.display = 'none'
+      return
+    }
+
+    const petLocalCenterX = imgRect.left - petRect.left + imgRect.width / 2 + anchor.x
+    const headTopLocal = imgRect.top - petRect.top + imgRect.height * anchor.headRatio
+    const petLocalTop = headTopLocal - hatH * 0.78 + anchor.y
+
+    petHat.style.display = 'block'
+    petHat.style.width = `${hatW}px`
+    petHat.style.height = `${hatH}px`
+    petHat.style.left = `${Math.round(petLocalCenterX)}px`
+    petHat.style.top = `${Math.round(petLocalTop)}px`
+    petHat.style.marginLeft = '0'
+    petHat.style.transform = 'translate(-50%, 0)'
+  }
+
+  requestAnimationFrame(() => updateStageAnchors(0))
+  if (miniLv) miniLv.textContent = `LV. ${info.lv}`
+  if (miniCoins) miniCoins.textContent = formatCompactNumber(normalized.coins)
+  if (miniExp) miniExp.textContent = `${info.expInLevel} / ${info.expMax}`
+  if (miniPet) {
+    miniPet.src = getPetAssetByTier(info.tierKey)
+    miniPet.alt = `${info.tierKey} pet`
+  }
+  if (miniHat && miniPet) {
+    const equipped = normalized.equippedItem === 'straw_hat'
+    if (!equipped) {
+      miniHat.style.display = 'none'
+    } else {
+      const anchor = HAT_ANCHORS[info.tierKey]
+      const miniRect = miniPet.getBoundingClientRect()
+      const wrap = miniPet.parentElement
+      const wrapRect = wrap?.getBoundingClientRect()
+
+      if (wrapRect && miniRect.width > 0) {
+        const hatW = anchor.miniHatWidth
+        const hatH = Math.round(hatW * 0.62)
+        const localCenterX = miniRect.left - wrapRect.left + miniRect.width / 2 + anchor.miniX
+        const headTopLocal = miniRect.top - wrapRect.top + miniRect.height * anchor.miniHeadRatio
+        const localTop = headTopLocal - hatH * 0.78 + anchor.miniY
+
+        miniHat.style.display = 'block'
+        miniHat.style.width = `${hatW}px`
+        miniHat.style.height = `${hatH}px`
+        miniHat.style.left = `${Math.round(localCenterX)}px`
+        miniHat.style.top = `${Math.round(localTop)}px`
+        miniHat.style.marginLeft = '0'
+        miniHat.style.transform = 'translate(-50%, 0)'
+      }
+    }
+  }
+
+  const shopButtons = mounted.shadow.querySelectorAll<HTMLButtonElement>(
+    '[data-highton="shop-item"]',
+  )
+  shopButtons.forEach((btn) => {
+    const itemKey = btn.getAttribute('data-item')
+    if (itemKey !== 'straw_hat') return
+    const item = SHOP_ITEMS.find((x) => x.key === itemKey)
+    if (!item) return
+
+    const owned = normalized.ownedItems.includes(itemKey)
+    const equipped = normalized.equippedItem === itemKey
+    const price = btn.querySelector<HTMLElement>('[data-highton="shop-price"]')
+    const action = btn.querySelector<HTMLElement>('[data-highton="shop-action"]')
+
+    if (price) {
+      price.textContent = String(item.price)
+      price.style.opacity = owned ? '0.6' : '1'
+    }
+    if (action) {
+      action.textContent = equipped ? '착용 중' : owned ? '착용하기' : '구매하기'
+    }
+    btn.setAttribute('data-owned', owned ? '1' : '0')
+    btn.setAttribute('data-equipped', equipped ? '1' : '0')
+  })
 
   const applyQuestRow = (key: QuestKey) => {
     const row = mounted.shadow.querySelector<HTMLElement>(`[data-highton="q_${key}"]`)
@@ -625,12 +741,14 @@ const mountWidget = () => {
       --card-bg: rgba(34, 34, 34, 0.5);
       --card-bg-2: rgba(34, 34, 34, 0.7);
       --track: rgba(255, 255, 255, 0.12);
+      --toast-top: 92px;
+      --toast-left: 50%;
     }
 
     .frame {
       box-sizing: border-box;
       position: fixed;
-      right: 16px;
+      left: ${Math.max(8, window.innerWidth - 480 - 16)}px;
       top: ${topOffset}px;
       width: 480px;
       height: 580px;
@@ -650,12 +768,210 @@ const mountWidget = () => {
         sans-serif;
     }
 
+    .toolbar {
+      width: 100%;
+      height: 22px;
+      margin-top: 0;
+      margin-bottom: 6px;
+      padding-right: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: move;
+      user-select: none;
+    }
+
+    .dragDots {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1;
+      letter-spacing: 0.2em;
+      padding-left: 4px;
+    }
+
+    .toolBtn {
+      width: 20px;
+      height: 20px;
+      border: 1px solid var(--frame-border);
+      border-radius: 6px;
+      background: rgba(34, 34, 34, 0.55);
+      color: #d8d8d8;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      font-size: 12px;
+      line-height: 1;
+      padding: 0;
+      margin-top: 1px;
+    }
+
+    .toolBtn:hover {
+      filter: brightness(1.08);
+    }
+
+    .miniDock {
+      display: none;
+      width: 100%;
+      height: 100%;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .miniDockBtn {
+      width: 148px;
+      height: 148px;
+      border-radius: 0;
+      border: 0;
+      background: transparent;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      padding: 0;
+      transition:
+        transform 120ms ease,
+        filter 120ms ease;
+    }
+
+    .miniDockBtn:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.03);
+    }
+
+    .miniPetWrap {
+      width: 148px;
+      height: 148px;
+      display: grid;
+      place-items: center;
+      flex: none;
+      position: relative;
+    }
+
+    .miniPet {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      user-select: none;
+      -webkit-user-drag: none;
+      pointer-events: none;
+    }
+
+    .miniHat {
+      position: absolute;
+      width: 50px;
+      height: 30px;
+      left: 0;
+      top: 0;
+      transform: translate(-50%, 0);
+      transform-origin: center center;
+      margin-left: -25px;
+      object-fit: contain;
+      pointer-events: none;
+      display: none;
+    }
+
+    .miniHoverCard {
+      position: absolute;
+      left: 126px;
+      top: 50%;
+      transform: translateY(-50%);
+      min-width: 148px;
+      max-width: 180px;
+      display: none;
+      flex-direction: column;
+      gap: 4px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(8px);
+      color: #2a2a2a;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.16);
+      pointer-events: none;
+      z-index: 6;
+    }
+
+    .miniHoverCard::after {
+      content: '';
+      position: absolute;
+      right: 100%;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 8px;
+      height: 10px;
+      background: rgba(255, 255, 255, 0.94);
+      clip-path: polygon(100% 50%, 0 0, 0 100%);
+    }
+
+    .miniMeta {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .miniLv {
+      font-weight: 700;
+      font-size: 12px;
+      line-height: 1.2;
+    }
+
+    .miniCoins {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #2a2a2a;
+    }
+
+    .miniLabel {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      color: #595959;
+    }
+
     .frame.collapsed {
       height: 420px;
     }
 
     .frame.collapsed .quests {
       display: none;
+    }
+
+    .frame.minimized {
+      width: 164px;
+      height: 164px;
+      padding: 6px;
+      gap: 0;
+      border-radius: 999px;
+      position: fixed;
+      justify-content: center;
+      align-items: center;
+      overflow: visible;
+      background: transparent;
+      border: 0;
+      backdrop-filter: none;
+    }
+
+    .frame.minimized .toolbar {
+      display: none;
+    }
+
+    .frame.minimized .stage,
+    .frame.minimized .status,
+    .frame.minimized .quests {
+      display: none;
+    }
+
+    .frame.minimized .miniDock {
+      display: flex;
+    }
+
+    .frame.minimized:hover .miniHoverCard,
+    .frame.minimized:focus-within .miniHoverCard {
+      display: flex;
     }
 
     .stage {
@@ -693,13 +1009,33 @@ const mountWidget = () => {
       border: 0;
       display: grid;
       place-items: center;
+      position: relative;
       overflow: visible;
+      cursor: pointer;
     }
 
     .petImage {
       width: 100%;
       height: 100%;
       object-fit: contain;
+      user-select: none;
+      -webkit-user-drag: none;
+      pointer-events: none;
+    }
+
+    .petHat {
+      position: absolute;
+      width: 110px;
+      height: 68px;
+      left: 0;
+      top: 0;
+      transform: translate(-50%, 0);
+      transform-origin: center center;
+      object-fit: contain;
+      pointer-events: none;
+      z-index: 3;
+      margin-left: -55px;
+      display: none;
     }
 
     .coinPill {
@@ -707,13 +1043,15 @@ const mountWidget = () => {
       position: absolute;
       right: 12px;
       top: 12px;
-      width: 67px;
+      width: auto;
+      min-width: 72px;
+      max-width: 140px;
       height: 26px;
-      padding: 4px 8px;
-      display: flex;
+      padding: 4px 10px;
+      display: inline-flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 12px;
+      justify-content: flex-start;
+      gap: 8px;
       border: 1px solid var(--frame-border);
       border-radius: 8px;
       background: var(--card-bg-2);
@@ -753,6 +1091,9 @@ const mountWidget = () => {
       font-size: 12px;
       line-height: 150%;
       text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .bagBtn {
@@ -774,6 +1115,11 @@ const mountWidget = () => {
 
     .bagBtn:hover {
       filter: brightness(1.05);
+    }
+
+    .bagBtn[aria-pressed='true'] {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(255, 157, 0, 0.45) inset;
     }
 
     .bagIcon {
@@ -811,20 +1157,119 @@ const mountWidget = () => {
       filter: brightness(1.05);
     }
 
+    .shopPanel {
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      bottom: 8px;
+      min-height: 116px;
+      padding: 26px 12px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 157, 0, 0.55);
+      background: rgba(34, 34, 34, 0.78);
+      backdrop-filter: blur(14px);
+      display: none;
+      flex-direction: row;
+      gap: 10px;
+      overflow-x: auto;
+      z-index: 5;
+    }
+
+    .shopClose {
+      position: absolute;
+      top: 6px;
+      right: 8px;
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      background: rgba(34, 34, 34, 0.42);
+      color: #e8e8e8;
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .shopClose:hover {
+      filter: brightness(1.08);
+    }
+
+    .shopPanel[data-open='1'] {
+      display: flex;
+    }
+
+    .shopCard {
+      width: 126px;
+      min-width: 126px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 157, 0, 0.9);
+      background: rgba(255, 157, 0, 0.16);
+      color: #ffffff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 8px;
+      cursor: pointer;
+    }
+
+    .shopCard:hover {
+      filter: brightness(1.05);
+    }
+
+    .shopCard[data-equipped='1'] {
+      border-color: #ffe8b7;
+      background: rgba(255, 157, 0, 0.3);
+    }
+
+    .shopIcon {
+      width: 54px;
+      height: 40px;
+      object-fit: contain;
+      pointer-events: none;
+    }
+
+    .shopPrice {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .shopName {
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.2;
+      text-align: center;
+    }
+
+    .shopAction {
+      font-size: 11px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.9);
+    }
+
     .status {
       width: 432px;
       height: 22px;
       display: flex;
       flex-direction: row;
       align-items: center;
-      gap: 24px;
+      gap: 12px;
     }
 
     .statusLeft {
       display: flex;
       flex-direction: row;
       align-items: center;
-      gap: 24px;
+      gap: 12px;
       flex: 1;
       min-width: 0;
     }
@@ -833,7 +1278,7 @@ const mountWidget = () => {
       font-weight: 600;
       font-size: 12px;
       line-height: 150%;
-      width: 90px;
+      width: 76px;
       text-align: left;
       white-space: nowrap;
     }
@@ -858,7 +1303,7 @@ const mountWidget = () => {
       font-weight: 600;
       font-size: 12px;
       line-height: 150%;
-      width: 56px;
+      width: 48px;
       text-align: center;
       white-space: nowrap;
     }
@@ -985,31 +1430,47 @@ const mountWidget = () => {
     .toast {
       box-sizing: border-box;
       position: absolute;
-      left: 12px;
-      bottom: 12px;
-      max-width: 240px;
+      left: var(--toast-left);
+      top: var(--toast-top);
+      max-width: 230px;
+      min-width: 120px;
       padding: 8px 10px;
-      border-radius: 8px;
-      background: rgba(34, 34, 34, 0.7);
-      border: 1px solid var(--frame-border);
-      backdrop-filter: blur(18px);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid rgba(0, 0, 0, 0.12);
+      backdrop-filter: blur(8px);
       font-weight: 600;
       font-size: 12px;
       line-height: 14px;
+      color: #2a2a2a;
       opacity: 0;
-      transform: translateY(6px);
+      transform: translate(-50%, 6px);
       transition:
         opacity 140ms ease,
         transform 140ms ease;
       pointer-events: none;
-      white-space: nowrap;
+      white-space: normal;
+      text-align: center;
       overflow: hidden;
       text-overflow: ellipsis;
+      z-index: 4;
+    }
+
+    .toast::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      top: 100%;
+      width: 10px;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.94);
+      clip-path: polygon(50% 100%, 0 0, 100% 0);
     }
 
     .toast[data-open='1'] {
       opacity: 1;
-      transform: translateY(0);
+      transform: translate(-50%, 0);
     }
 
     @keyframes highton-enter {
@@ -1028,10 +1489,37 @@ const mountWidget = () => {
   panel.className = 'frame'
   panel.setAttribute('data-highton', 'panel')
   panel.innerHTML = `
+    <section class="toolbar" data-highton="dragHandle" aria-label="widget toolbar">
+      <span class="dragDots" aria-hidden="true">•••</span>
+      <button class="toolBtn" type="button" data-highton="minimize" aria-label="minimize">—</button>
+    </section>
+
+    <section class="miniDock" data-highton="miniDock" aria-label="minimized widget">
+      <button class="miniDockBtn" type="button" data-highton="miniRestore" aria-label="restore widget">
+        <span class="miniPetWrap" aria-hidden="true">
+          <img class="miniPet" data-highton="miniPet" src="${ICON_DATA_URLS.newbie}" alt="Newbie pet" />
+          <img class="miniHat" data-highton="miniHat" src="${ICON_DATA_URLS.hat}" alt="" aria-hidden="true" />
+        </span>
+      </button>
+
+      <div class="miniHoverCard" data-highton="miniHover">
+        <div class="miniMeta">
+          <div class="miniLv" data-highton="miniHoverLv">LV. Newbie1</div>
+          <div class="miniCoins">
+            <span class="miniLabel">Coin</span>
+            <span class="coinGlyph" aria-hidden="true"></span>
+            <span data-highton="miniHoverCoins">360</span>
+          </div>
+          <div class="miniCoins"><span class="miniLabel">EXP</span> <span data-highton="miniHoverExp">0 / 100</span></div>
+        </div>
+      </div>
+    </section>
+
     <section class="stage" aria-label="stage" data-highton="toggle-area">
       <div class="stageInner">
-        <div class="pet" aria-hidden="true">
+        <div class="pet" data-highton="petTalk" data-highton-no-drag="1" role="button" tabindex="0" aria-label="pet talk">
           <img class="petImage" data-highton="petImage" src="${ICON_DATA_URLS.newbie}" alt="Newbie pet" />
+          <img class="petHat" data-highton="petHat" src="${ICON_DATA_URLS.hat}" alt="" aria-hidden="true" />
         </div>
       </div>
       <div class="coinPill" aria-label="coins">
@@ -1044,6 +1532,18 @@ const mountWidget = () => {
       <button class="stageLeftBtn" type="button" data-highton="collapse" aria-label="collapse">
         <img class="stageIcon" src="${ICON_DATA_URLS.game}" alt="" aria-hidden="true" />
       </button>
+      <section class="shopPanel" data-highton="shopPanel" aria-label="shop">
+        <button class="shopClose" type="button" data-highton="shopClose" aria-label="close shop">×</button>
+        <button class="shopCard" type="button" data-highton="shop-item" data-item="straw_hat">
+          <img class="shopIcon" src="${ICON_DATA_URLS.hat}" alt="" aria-hidden="true" />
+          <div class="shopPrice">
+            <span class="coinGlyph" aria-hidden="true"></span>
+            <span data-highton="shop-price">100</span>
+          </div>
+          <div class="shopName">밀짚모자</div>
+          <div class="shopAction" data-highton="shop-action">구매하기</div>
+        </button>
+      </section>
       <div class="toast" data-highton="toast"></div>
     </section>
 
@@ -1107,7 +1607,6 @@ const mountWidget = () => {
 }
 
 const unmountWidget = () => {
-  stopGitHubDetection()
   document.getElementById(ROOT_ID)?.remove()
 }
 
@@ -1117,31 +1616,189 @@ const wireUi = async () => {
 
   const state = await loadState()
   renderState(state)
-  startGitHubDetection()
 
-  const applyCollapsed = (collapsed: boolean) => {
-    mounted.panel.classList.toggle('collapsed', collapsed)
+  let applyShopOpen: (open: boolean) => void = () => {
+    void 0
+  }
+
+  const rerenderByCurrentState = () => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        void (async () => {
+          const latest = await loadState()
+          renderState(latest)
+        })()
+      })
+    })
+  }
+
+  const applyPosition = (left: number, top: number) => {
+    const rect = mounted.panel.getBoundingClientRect()
+    const clamped = clampPosition(left, top, rect.width, rect.height)
+    mounted.panel.style.right = 'auto'
+    mounted.panel.style.left = `${clamped.left}px`
+    mounted.panel.style.top = `${clamped.top}px`
+
     try {
-      window.localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0')
+      window.localStorage.setItem(POSITION_KEY, JSON.stringify(clamped))
     } catch {
       void 0
     }
   }
 
+  const applyMinimized = (minimized: boolean) => {
+    mounted.panel.classList.toggle('minimized', minimized)
+    const minimizeBtn = mounted.shadow.querySelector<HTMLButtonElement>('[data-highton="minimize"]')
+    if (minimizeBtn) {
+      minimizeBtn.textContent = minimized ? '□' : '—'
+      minimizeBtn.setAttribute('aria-label', minimized ? 'restore' : 'minimize')
+    }
+
+    try {
+      window.localStorage.setItem(MINIMIZE_KEY, minimized ? '1' : '0')
+    } catch {
+      void 0
+    }
+
+    if (minimized) {
+      applyShopOpen(false)
+    }
+
+    const rect = mounted.panel.getBoundingClientRect()
+    applyPosition(rect.left, rect.top)
+    rerenderByCurrentState()
+  }
+
   try {
-    applyCollapsed(window.localStorage.getItem(COLLAPSE_KEY) === '1')
+    applyMinimized(window.localStorage.getItem(MINIMIZE_KEY) === '1')
   } catch {
     void 0
   }
 
-  const collapseBtn = mounted.shadow.querySelector<HTMLButtonElement>('[data-highton="collapse"]')
-  collapseBtn?.addEventListener('click', () => {
-    applyCollapsed(!mounted.panel.classList.contains('collapsed'))
+  try {
+    const raw = window.localStorage.getItem(POSITION_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw) as { left?: unknown; top?: unknown }
+      if (typeof parsed.left === 'number' && typeof parsed.top === 'number') {
+        applyPosition(parsed.left, parsed.top)
+      }
+    }
+  } catch {
+    void 0
+  }
+
+  if (mounted.panel.getAttribute('data-highton-wired') === '1') {
+    return
+  }
+  mounted.panel.setAttribute('data-highton-wired', '1')
+
+  const minimizeBtn = mounted.shadow.querySelector<HTMLButtonElement>('[data-highton="minimize"]')
+  minimizeBtn?.addEventListener('click', () => {
+    applyMinimized(!mounted.panel.classList.contains('minimized'))
   })
 
-  const toggleArea = mounted.shadow.querySelector<HTMLElement>('[data-highton="toggle-area"]')
-  toggleArea?.addEventListener('dblclick', () => {
-    applyCollapsed(!mounted.panel.classList.contains('collapsed'))
+  const miniRestoreBtn = mounted.shadow.querySelector<HTMLButtonElement>(
+    '[data-highton="miniRestore"]',
+  )
+  const bagButton = mounted.shadow.querySelector<HTMLButtonElement>('[data-highton="bag"]')
+  const shopPanel = mounted.shadow.querySelector<HTMLElement>('[data-highton="shopPanel"]')
+  const shopCloseButton = mounted.shadow.querySelector<HTMLButtonElement>(
+    '[data-highton="shopClose"]',
+  )
+  const shopButtons = mounted.shadow.querySelectorAll<HTMLButtonElement>(
+    '[data-highton="shop-item"]',
+  )
+
+  let shopOpen = false
+  applyShopOpen = (open: boolean) => {
+    shopOpen = open
+    if (shopPanel) {
+      shopPanel.setAttribute('data-open', open ? '1' : '0')
+    }
+    if (bagButton) {
+      bagButton.setAttribute('aria-pressed', open ? 'true' : 'false')
+    }
+  }
+  applyShopOpen(false)
+
+  let dragging = false
+  let offsetX = 0
+  let offsetY = 0
+  let dragStartX = 0
+  let dragStartY = 0
+  let dragMoved = false
+  let suppressMiniRestoreClick = false
+
+  const onMouseMove = (event: MouseEvent) => {
+    if (!dragging) return
+
+    if (!dragMoved) {
+      const movedX = Math.abs(event.clientX - dragStartX)
+      const movedY = Math.abs(event.clientY - dragStartY)
+      if (movedX > 3 || movedY > 3) {
+        dragMoved = true
+      }
+    }
+
+    applyPosition(event.clientX - offsetX, event.clientY - offsetY)
+  }
+
+  const stopDragging = () => {
+    if (dragMoved) {
+      suppressMiniRestoreClick = true
+    }
+    dragging = false
+    dragMoved = false
+    window.removeEventListener('mousemove', onMouseMove)
+    window.removeEventListener('mouseup', stopDragging)
+  }
+
+  const startDragging = (event: MouseEvent) => {
+    if (event.button !== 0) return
+    const target = event.target as HTMLElement | null
+    if (
+      target?.closest(
+        'button:not(.miniDockBtn), input, textarea, select, a, [role="button"], [data-highton-no-drag="1"]',
+      )
+    ) {
+      return
+    }
+
+    event.preventDefault()
+    const rect = mounted.panel.getBoundingClientRect()
+    dragStartX = event.clientX
+    dragStartY = event.clientY
+    offsetX = event.clientX - rect.left
+    offsetY = event.clientY - rect.top
+    dragging = true
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', stopDragging)
+  }
+
+  mounted.panel.addEventListener('mousedown', startDragging)
+
+  miniRestoreBtn?.addEventListener('click', () => {
+    if (suppressMiniRestoreClick) {
+      suppressMiniRestoreClick = false
+      return
+    }
+    applyMinimized(false)
+  })
+
+  const petTalkTarget = mounted.shadow.querySelector<HTMLElement>('[data-highton="petTalk"]')
+  const emitPetTalk = () => {
+    void (async () => {
+      const prev = await loadState()
+      const current = ensureToday(prev)
+      toast(getPetTalkMessage(current))
+    })()
+  }
+
+  petTalkTarget?.addEventListener('click', emitPetTalk)
+  petTalkTarget?.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    event.preventDefault()
+    emitPetTalk()
   })
 
   const feedCost = mounted.shadow.querySelector<HTMLElement>('[data-highton="feedCost"]')
@@ -1171,9 +1828,62 @@ const wireUi = async () => {
     })()
   })
 
-  const bagButton = mounted.shadow.querySelector<HTMLButtonElement>('[data-highton="bag"]')
   bagButton?.addEventListener('click', () => {
-    toast('가방: 준비중')
+    applyShopOpen(!shopOpen)
+  })
+
+  shopCloseButton?.addEventListener('click', () => {
+    applyShopOpen(false)
+  })
+
+  shopButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const itemKey = btn.getAttribute('data-item')
+      if (itemKey !== 'straw_hat') return
+
+      void (async () => {
+        const item = SHOP_ITEMS.find((x) => x.key === itemKey)
+        if (!item) return
+
+        const prev = await loadState()
+        const current = ensureToday(prev)
+        const owned = current.ownedItems.includes(itemKey)
+
+        if (!owned) {
+          if (current.coins < item.price) {
+            toast('코인이 부족해요')
+            return
+          }
+
+          const next: PetState = {
+            ...current,
+            coins: current.coins - item.price,
+            ownedItems: [...current.ownedItems, itemKey],
+            equippedItem: itemKey,
+          }
+
+          const withLog = pushLog(next, `Shop: bought ${item.name} -${item.price} coin`)
+          await saveState(withLog)
+          renderState(withLog)
+          toast(`${item.name} 구매 완료!`)
+          return
+        }
+
+        const equipNext = current.equippedItem === itemKey ? null : itemKey
+        const next: PetState = {
+          ...current,
+          equippedItem: equipNext,
+        }
+
+        const withLog = pushLog(
+          next,
+          `Shop: ${equipNext ? `equipped ${item.name}` : `unequipped ${item.name}`}`,
+        )
+        await saveState(withLog)
+        renderState(withLog)
+        toast(equipNext ? `${item.name} 착용!` : `${item.name} 해제`)
+      })()
+    })
   })
 
   const claimButtons = mounted.shadow.querySelectorAll<HTMLButtonElement>(
@@ -1253,6 +1963,25 @@ chrome.runtime.onMessage.addListener((message) => {
       await saveState(next)
       renderState(next)
       toast('초기화 완료')
+    })()
+  }
+
+  if (message.type === 'HIGHTON_ADD_TEST_COINS') {
+    const rawAmount = (message as { amount?: unknown }).amount
+    const amount =
+      typeof rawAmount === 'number' && rawAmount > 0 ? Math.floor(rawAmount) : TEST_COIN_AMOUNT
+
+    void (async () => {
+      const prev = await loadState()
+      const current = ensureToday(prev)
+      const next: PetState = {
+        ...current,
+        coins: Math.max(0, current.coins + amount),
+      }
+      const withLog = pushLog(next, `Test coins +${amount}`)
+      await saveState(withLog)
+      renderState(withLog)
+      toast(`테스트 코인 +${amount}`)
     })()
   }
 

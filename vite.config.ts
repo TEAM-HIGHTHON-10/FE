@@ -6,4 +6,7 @@ import manifest from './src/manifest'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), crx({ manifest })],
+  build: {
+    emptyOutDir: false,
+  },
 })
