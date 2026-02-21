@@ -21,6 +21,8 @@ export type LogItem = {
 
 export type PetState = {
   coins: number
+  goldenEggs: number
+  lockedEggs: number
   exp: number
   mood: Mood
   lastCommitAt: number
@@ -50,4 +52,6 @@ export type HatAnchor = {
   miniY: number
   miniHeadRatio: number
   miniHatWidth: number
+  miniBadgeX: number
+  miniBadgeY: number
 }

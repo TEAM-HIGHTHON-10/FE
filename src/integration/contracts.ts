@@ -3,13 +3,22 @@ export const BACKEND_WS_URL = 'wss://dev.taisu.site/ws'
 export const AUTH_STORAGE_KEY = 'highton_auth_session_v1'
 
 export type BackendLevel = 'NEWBIE' | 'JUNIOR' | 'MIDDLE' | 'SENIOR'
-export type QuestType = 'COMMIT' | 'PR' | 'ISSUE' | 'FOLLOWER' | 'GAME'
+export type QuestType = 'COMMIT' | 'PR' | 'ISSUE' | 'REVIEW' | 'FOLLOWER' | 'GAME'
 
 export type AuthSession = {
   token: string
   username: string
   xp: number
   level: BackendLevel
+}
+
+export type OAuthCallbackLevelKo = '입문' | '주니어' | '미들' | '시니어'
+
+export type OAuthCallbackResponse = {
+  token: string
+  username: string
+  xp: number
+  level: OAuthCallbackLevelKo | BackendLevel
 }
 
 export type StatusResponse = {
@@ -46,10 +55,25 @@ export type WebhookRegisterResponse = {
   name: string
   active: boolean
   events: string[]
-  config: {
+  config?: {
     url: string
     content_type: string
   }
+}
+
+export type OrgItem = {
+  login: string
+  id: number
+  avatar_url: string
+  description: string | null
+}
+
+export type RepoItem = {
+  name: string
+  full_name: string
+  private: boolean
+  html_url: string
+  language: string | null
 }
 
 export type ApiErrorPayload = {
@@ -72,6 +96,12 @@ export type RuntimeRequest =
 export type RuntimeResponse<T> =
   | { ok: true; data: T }
   | { ok: false; error: string; status?: number }
+
+export type AuthStatusData = {
+  authenticated: boolean
+  username: string | null
+  level: BackendLevel | null
+}
 
 export type QuestCompletedEvent = {
   type: 'QUEST_COMPLETED'
