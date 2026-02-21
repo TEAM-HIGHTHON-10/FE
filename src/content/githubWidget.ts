@@ -205,6 +205,7 @@ type HatAnchor = {
   headRatio: number
   hatWidth: number
   toastGap: number
+  toastNoHatGap: number
   miniX: number
   miniY: number
   miniHeadRatio: number
@@ -218,6 +219,7 @@ const HAT_ANCHORS: Record<TierKey, HatAnchor> = {
     headRatio: 0.4,
     hatWidth: 55,
     toastGap: 10,
+    toastNoHatGap: 42,
     miniX: 2,
     miniY: 5,
     miniHeadRatio: 0.42,
@@ -229,6 +231,7 @@ const HAT_ANCHORS: Record<TierKey, HatAnchor> = {
     headRatio: 0.32,
     hatWidth: 55,
     toastGap: 10,
+    toastNoHatGap: 20,
     miniX: -2,
     miniY: 10,
     miniHeadRatio: 0.36,
@@ -240,6 +243,7 @@ const HAT_ANCHORS: Record<TierKey, HatAnchor> = {
     headRatio: 0.28,
     hatWidth: 100,
     toastGap: 20,
+    toastNoHatGap: 60,
     miniX: -5,
     miniY: 1,
     miniHeadRatio: 0.32,
@@ -251,6 +255,7 @@ const HAT_ANCHORS: Record<TierKey, HatAnchor> = {
     headRatio: 0.22,
     hatWidth: 130,
     toastGap: 15,
+    toastNoHatGap: 70,
     miniX: -15,
     miniY: -5,
     miniHeadRatio: 0.26,
@@ -603,7 +608,7 @@ const renderState = (state: PetState) => {
 
     const headCenterX = imgRect.left - stageRect.left + imgRect.width / 2 + anchor.x
     const headTopY = imgRect.top - stageRect.top + imgRect.height * anchor.headRatio
-    const toastTop = equipped ? headTopY - hatH - anchor.toastGap : headTopY - 42
+    const toastTop = equipped ? headTopY - hatH - anchor.toastGap : headTopY - anchor.toastNoHatGap
 
     mounted.panel.style.setProperty('--toast-left', `${Math.round(headCenterX)}px`)
     mounted.panel.style.setProperty('--toast-top', `${Math.round(clamp(toastTop, 10, 130))}px`)
