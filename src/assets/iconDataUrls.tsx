@@ -8,6 +8,7 @@ import { Mid } from './Mid'
 import { Newbie } from './Newbie'
 import { Senior } from './Senior'
 import { Hat } from './Hat'
+import { Stone } from './Stone'
 
 type SvgComponent = ComponentType<SVGProps<SVGSVGElement>>
 
@@ -25,4 +26,5 @@ export const ICON_DATA_URLS = {
   mid: toDataUrl(Mid),
   senior: toDataUrl(Senior),
   hat: toDataUrl(Hat),
+  stone: toDataUrl(Stone),
 } as const

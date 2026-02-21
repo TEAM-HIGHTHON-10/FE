@@ -122,7 +122,7 @@ const clampPosition = (
   width: number,
   height: number,
 ): WidgetPosition => {
-  const margin = 8
+  const margin = 0
   const maxLeft = Math.max(margin, window.innerWidth - width - margin)
   const maxTop = Math.max(margin, window.innerHeight - height - margin)
 
@@ -958,9 +958,9 @@ const mountWidget = () => {
     }
 
     .frame.minimized {
-      width: 164px;
-      height: 164px;
-      padding: 6px;
+      width: 148px;
+      height: 148px;
+      padding: 0;
       gap: 0;
       border-radius: 999px;
       position: fixed;
@@ -1686,6 +1686,7 @@ const wireUi = async () => {
   }
 
   const applyMinimized = (minimized: boolean) => {
+    const prevRect = mounted.panel.getBoundingClientRect()
     mounted.panel.classList.toggle('minimized', minimized)
     const minimizeBtn = mounted.shadow.querySelector<HTMLButtonElement>('[data-highton="minimize"]')
     if (minimizeBtn) {
@@ -1704,7 +1705,8 @@ const wireUi = async () => {
     }
 
     const rect = mounted.panel.getBoundingClientRect()
-    applyPosition(rect.left, rect.top)
+    const nextLeft = prevRect.right - rect.width
+    applyPosition(nextLeft, prevRect.top)
     rerenderByCurrentState()
     requestAnimationFrame(updateMiniHoverDirection)
   }
