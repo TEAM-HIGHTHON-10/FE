@@ -461,6 +461,199 @@ export const createWidgetCss = (topOffset: number) => `
       z-index: 5;
     }
 
+<<<<<<< Updated upstream
+=======
+    .gamePanel {
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      bottom: 8px;
+      min-height: 116px;
+      padding: 26px 12px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(248, 163, 26, 0.78);
+      background: rgba(34, 34, 34, 0.82);
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      overflow: hidden;
+      z-index: 6;
+      backdrop-filter: blur(14px);
+    }
+
+    .gamePanel[data-open='1'] {
+      display: flex;
+    }
+
+    .gameCard {
+      box-sizing: border-box;
+      width: 100%;
+      min-width: 0;
+      min-height: 116px;
+      border-radius: 12px;
+      border: 1px solid rgba(248, 163, 26, 0.95);
+      background:
+        radial-gradient(circle at 50% 80%, rgba(255, 167, 50, 0.28) 0%, rgba(0, 0, 0, 0) 46%),
+        linear-gradient(180deg, #be7c17 0%, #b87312 100%);
+      box-shadow:
+        inset 0 0 0 1px rgba(255, 230, 170, 0.2),
+        0 8px 20px rgba(0, 0, 0, 0.26);
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: flex-start;
+      gap: 6px;
+      position: relative;
+      padding: 8px;
+    }
+
+    .gameHud {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .gameScore {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+    }
+
+    .gameArena {
+      position: relative;
+      height: 118px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 233, 185, 0.3);
+      background:
+        radial-gradient(circle at 50% 12%, rgba(245, 226, 178, 0.34), rgba(245, 226, 178, 0) 40%),
+        linear-gradient(180deg, rgba(88, 48, 7, 0.35), rgba(43, 21, 3, 0.5));
+      overflow: hidden;
+    }
+
+    .gameStonesLayer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .gameFallingStone {
+      position: absolute;
+      width: 26px;
+      height: 20px;
+      object-fit: contain;
+      filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.45));
+      pointer-events: none;
+      will-change: transform;
+    }
+
+    .gamePlayer {
+      position: absolute;
+      left: 50%;
+      bottom: 6px;
+      width: 38px;
+      height: 38px;
+      object-fit: contain;
+      transform: translateX(-50%);
+      filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.35));
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .gameControls {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .gameMoveBtn,
+    .gameStartBtn {
+      height: 26px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.34);
+      background: rgba(18, 18, 18, 0.34);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      padding: 0 10px;
+    }
+
+    .gameMoveBtn:disabled,
+    .gameStartBtn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .gameStartBtn {
+      min-width: 76px;
+      background: rgba(255, 180, 60, 0.22);
+      border-color: rgba(255, 214, 135, 0.72);
+    }
+
+    .gameHint {
+      text-align: center;
+      font-size: 11px;
+      color: rgba(255, 245, 226, 0.88);
+      line-height: 1;
+    }
+
+    .gameClose {
+      position: absolute;
+      top: 6px;
+      right: 8px;
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      background: rgba(34, 34, 34, 0.42);
+      color: #e8e8e8;
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0;
+      z-index: 1;
+    }
+
+    .gameClose:hover {
+      filter: brightness(1.08);
+    }
+
+    .gameStone {
+      width: 20px;
+      height: 16px;
+      object-fit: contain;
+      filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.22));
+    }
+
+    .gameReward {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+    }
+
+    .gameTitle {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0;
+      color: #fff;
+      line-height: 1.2;
+      text-align: center;
+    }
+
+>>>>>>> Stashed changes
     .shopClose {
       position: absolute;
       top: 6px;
@@ -815,6 +1008,29 @@ export const createWidgetHtml = () => `
       <button class="stageLeftBtn" type="button" data-highton="collapse" aria-label="collapse">
         <img class="stageIcon" src="${ICON_DATA_URLS.game}" alt="" aria-hidden="true" />
       </button>
+<<<<<<< Updated upstream
+=======
+      <section class="gamePanel" data-highton="gamePanel" aria-label="game panel">
+        <button class="gameClose" type="button" data-highton="gameClose" aria-label="close game panel">×</button>
+        <div class="gameCard" aria-label="stone dodge game">
+          <div class="gameHud">
+            <div class="gameScore">점수 <span data-highton="gameScore">0</span></div>
+            <div class="gameReward"><img class="goldGlyphIcon" src="${ICON_DATA_URLS.goldEgg}" alt="" aria-hidden="true" />점수=보상</div>
+            <img class="gameStone" src="${ICON_DATA_URLS.stone}" alt="" aria-hidden="true" />
+          </div>
+          <div class="gameArena" data-highton="gameArena">
+            <div class="gameStonesLayer" data-highton="gameStones"></div>
+            <img class="gamePlayer" data-highton="gamePlayer" src="${ICON_DATA_URLS.newbieGame}" alt="game character" />
+          </div>
+          <div class="gameControls">
+            <button class="gameMoveBtn" type="button" data-highton="gameMoveLeft" aria-label="move left">◀</button>
+            <button class="gameStartBtn" type="button" data-highton="gameStart" aria-label="start game">시작</button>
+            <button class="gameMoveBtn" type="button" data-highton="gameMoveRight" aria-label="move right">▶</button>
+          </div>
+          <div class="gameHint">돌을 1개 피할 때마다 +10점 (게임 오버 시 점수만큼 황금 달걀)</div>
+        </div>
+      </section>
+>>>>>>> Stashed changes
       <section class="shopPanel" data-highton="shopPanel" aria-label="shop">
         <button class="shopClose" type="button" data-highton="shopClose" aria-label="close shop">×</button>
         <button class="shopCard" type="button" data-highton="shop-item" data-item="straw_hat">

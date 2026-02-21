@@ -15,6 +15,7 @@ import {
   createDefaultState,
   ensureToday,
   formatCompactNumber,
+  getGamePetAssetByTier,
   getLevelInfo,
   getPetAssetByTier,
   getPetTalkMessage,
@@ -28,7 +29,6 @@ import {
   BACKEND_WS_URL,
   type BackendLevel,
   type FeedResponse,
-  type GameResultResponse,
   type QuestCompletedEvent,
   type RuntimeResponse,
   type StatusResponse,
@@ -259,6 +259,7 @@ const renderState = (state: PetState) => {
 
   const normalized = ensureToday(state)
   const info = getLevelInfo(normalized.exp)
+  const equippedHat = normalized.equippedItem === 'straw_hat'
   const percent = Math.max(0, Math.min(100, (info.expInLevel / info.expMax) * 100))
 
   const coins = mounted.shadow.querySelector<HTMLElement>('[data-highton="coins"]')
@@ -279,6 +280,7 @@ const renderState = (state: PetState) => {
     '[data-highton="miniQuestBadge"]',
   )
   const miniPet = mounted.shadow.querySelector<HTMLImageElement>('[data-highton="miniPet"]')
+  const gamePlayer = mounted.shadow.querySelector<HTMLImageElement>('[data-highton="gamePlayer"]')
   const miniHat = mounted.shadow.querySelector<HTMLImageElement>('[data-highton="miniHat"]')
   const feedCost = mounted.shadow.querySelector<HTMLElement>('[data-highton="feedCost"]')
   const feedButton = mounted.shadow.querySelector<HTMLButtonElement>('[data-highton="feed"]')
@@ -290,7 +292,7 @@ const renderState = (state: PetState) => {
   if (fill) fill.style.width = `${percent}%`
   if (bar) bar.setAttribute('aria-valuenow', String(info.expInLevel))
   if (petImage) {
-    petImage.src = getPetAssetByTier(info.tierKey)
+    petImage.src = getPetAssetByTier(info.tierKey, equippedHat)
     petImage.alt = `${info.tierKey} pet`
   }
   const stage = mounted.shadow.querySelector<HTMLElement>('[data-highton="toggle-area"]')
@@ -311,7 +313,7 @@ const renderState = (state: PetState) => {
     }
 
     const anchor = HAT_ANCHORS[info.tierKey]
-    const equipped = normalized.equippedItem === 'straw_hat'
+    const equipped = equippedHat
     const hatW = anchor.hatWidth
     const hatH = Math.round(hatW * 0.62)
 
@@ -322,24 +324,9 @@ const renderState = (state: PetState) => {
     mounted.panel.style.setProperty('--toast-left', `${Math.round(headCenterX)}px`)
     mounted.panel.style.setProperty('--toast-top', `${Math.round(clamp(toastTop, 10, 130))}px`)
 
-    if (!petHat) return
-
-    if (!equipped) {
+    if (petHat) {
       petHat.style.display = 'none'
-      return
     }
-
-    const petLocalCenterX = imgRect.left - petRect.left + imgRect.width / 2 + anchor.x
-    const headTopLocal = imgRect.top - petRect.top + imgRect.height * anchor.headRatio
-    const petLocalTop = headTopLocal - hatH * 0.78 + anchor.y
-
-    petHat.style.display = 'block'
-    petHat.style.width = `${hatW}px`
-    petHat.style.height = `${hatH}px`
-    petHat.style.left = `${Math.round(petLocalCenterX)}px`
-    petHat.style.top = `${Math.round(petLocalTop)}px`
-    petHat.style.marginLeft = '0'
-    petHat.style.transform = 'translate(-50%, 0)'
   }
 
   requestAnimationFrame(() => updateStageAnchors(0))
@@ -350,8 +337,12 @@ const renderState = (state: PetState) => {
   if (feedCost) feedCost.textContent = formatCompactNumber(normalized.coins)
   if (feedButton) feedButton.disabled = normalized.coins <= 0
   if (miniPet) {
-    miniPet.src = getPetAssetByTier(info.tierKey)
+    miniPet.src = getPetAssetByTier(info.tierKey, equippedHat)
     miniPet.alt = `${info.tierKey} pet`
+  }
+  if (gamePlayer) {
+    gamePlayer.src = getGamePetAssetByTier(info.tierKey, equippedHat, false)
+    gamePlayer.alt = `${info.tierKey} game pet`
   }
   if (miniQuestBadge && miniPet) {
     const anchor = HAT_ANCHORS[info.tierKey]
@@ -366,32 +357,8 @@ const renderState = (state: PetState) => {
       miniQuestBadge.style.top = `${Math.round(headTopLocal + anchor.miniBadgeY)}px`
     }
   }
-  if (miniHat && miniPet) {
-    const equipped = normalized.equippedItem === 'straw_hat'
-    if (!equipped) {
-      miniHat.style.display = 'none'
-    } else {
-      const anchor = HAT_ANCHORS[info.tierKey]
-      const miniRect = miniPet.getBoundingClientRect()
-      const wrap = miniPet.parentElement
-      const wrapRect = wrap?.getBoundingClientRect()
-
-      if (wrapRect && miniRect.width > 0) {
-        const hatW = anchor.miniHatWidth
-        const hatH = Math.round(hatW * 0.62)
-        const localCenterX = miniRect.left - wrapRect.left + miniRect.width / 2 + anchor.miniX
-        const headTopLocal = miniRect.top - wrapRect.top + miniRect.height * anchor.miniHeadRatio
-        const localTop = headTopLocal - hatH * 0.78 + anchor.miniY
-
-        miniHat.style.display = 'block'
-        miniHat.style.width = `${hatW}px`
-        miniHat.style.height = `${hatH}px`
-        miniHat.style.left = `${Math.round(localCenterX)}px`
-        miniHat.style.top = `${Math.round(localTop)}px`
-        miniHat.style.marginLeft = '0'
-        miniHat.style.transform = 'translate(-50%, 0)'
-      }
-    }
+  if (miniHat) {
+    miniHat.style.display = 'none'
   }
 
   const shopButtons = mounted.shadow.querySelectorAll<HTMLButtonElement>(
@@ -609,7 +576,17 @@ const wireUi = async () => {
   const gameCloseButton = mounted.shadow.querySelector<HTMLButtonElement>(
     '[data-highton="gameClose"]',
   )
-  const gamePlayButton = mounted.shadow.querySelector<HTMLElement>('[data-highton="gamePlay"]')
+  const gameStartButton = mounted.shadow.querySelector<HTMLButtonElement>('[data-highton="gameStart"]')
+  const gameMoveLeftButton = mounted.shadow.querySelector<HTMLButtonElement>(
+    '[data-highton="gameMoveLeft"]',
+  )
+  const gameMoveRightButton = mounted.shadow.querySelector<HTMLButtonElement>(
+    '[data-highton="gameMoveRight"]',
+  )
+  const gameArena = mounted.shadow.querySelector<HTMLElement>('[data-highton="gameArena"]')
+  const gameStonesLayer = mounted.shadow.querySelector<HTMLElement>('[data-highton="gameStones"]')
+  const gamePlayer = mounted.shadow.querySelector<HTMLImageElement>('[data-highton="gamePlayer"]')
+  const gameScoreText = mounted.shadow.querySelector<HTMLElement>('[data-highton="gameScore"]')
   const bagButton = mounted.shadow.querySelector<HTMLButtonElement>('[data-highton="bag"]')
   const shopPanel = mounted.shadow.querySelector<HTMLElement>('[data-highton="shopPanel"]')
   const shopCloseButton = mounted.shadow.querySelector<HTMLButtonElement>(
@@ -789,13 +766,201 @@ const wireUi = async () => {
   })
 
   gameCloseButton?.addEventListener('click', () => {
+    if (gameRunning) {
+      endGame(false)
+    }
     applyGameOpen(false)
   })
 
-  const playStoneDodge = async () => {
+  type StoneEntity = {
+    id: number
+    x: number
+    y: number
+    speed: number
+    width: number
+    height: number
+    element: HTMLImageElement
+  }
+
+  let gameRunning = false
+  let gameScore = 0
+  let gamePlayerX = 0
+  let gameFrameId: number | null = null
+  let gameSpawnTimerId: number | null = null
+  let lastFrameTime = 0
+  let stoneSeq = 0
+  let stones: StoneEntity[] = []
+
+  const clearGameTimers = () => {
+    if (gameFrameId !== null) {
+      window.cancelAnimationFrame(gameFrameId)
+      gameFrameId = null
+    }
+    if (gameSpawnTimerId !== null) {
+      window.clearInterval(gameSpawnTimerId)
+      gameSpawnTimerId = null
+    }
+  }
+
+  const syncGameScoreUi = () => {
+    if (gameScoreText) gameScoreText.textContent = String(gameScore)
+  }
+
+  const moveGamePlayer = (delta: number) => {
+    if (!gameArena || !gamePlayer) return
+    const arenaW = gameArena.clientWidth
+    const playerW = gamePlayer.clientWidth || 38
+    const minX = playerW / 2
+    const maxX = Math.max(minX, arenaW - playerW / 2)
+    gamePlayerX = clamp(gamePlayerX + delta, minX, maxX)
+    gamePlayer.style.left = `${Math.round(gamePlayerX)}px`
+  }
+
+  const clearStones = () => {
+    stones.forEach((stone) => stone.element.remove())
+    stones = []
+  }
+
+  const spawnStone = () => {
+    if (!gameRunning || !gameArena || !gameStonesLayer) return
+    const arenaW = gameArena.clientWidth
+    if (arenaW <= 10) return
+
+    const width = 26
+    const height = 20
+    const minX = 4
+    const maxX = Math.max(minX, arenaW - width - 4)
+    const x = Math.floor(minX + Math.random() * (maxX - minX + 1))
+    const y = -height - 2
+    const speed = 120 + Math.random() * 95
+
+    const element = document.createElement('img')
+    element.className = 'gameFallingStone'
+    element.src = mounted.shadow.querySelector<HTMLImageElement>('.gameStone')?.src || ''
+    if (!element.src) {
+      const fallback = mounted.shadow.querySelector<HTMLImageElement>('[data-highton="bag"] img')
+      element.src = fallback?.src ?? ''
+    }
+    element.alt = ''
+    element.setAttribute('aria-hidden', 'true')
+    element.style.left = `${x}px`
+    element.style.top = `${y}px`
+
+    gameStonesLayer.appendChild(element)
+
+    stones.push({
+      id: ++stoneSeq,
+      x,
+      y,
+      speed,
+      width,
+      height,
+      element,
+    })
+  }
+
+  const setGamePlayerSprite = async (dead: boolean) => {
+    if (!gamePlayer) return
+    const state = ensureToday(await loadState())
+    const levelInfo = getLevelInfo(state.exp)
+    const withHat = state.equippedItem === 'straw_hat'
+    gamePlayer.src = getGamePetAssetByTier(levelInfo.tierKey, withHat, dead)
+  }
+
+  const endGame = (rewardPlayer: boolean) => {
+    gameRunning = false
+    clearGameTimers()
+    if (gameStartButton) {
+      gameStartButton.textContent = '시작'
+      gameStartButton.disabled = false
+    }
+    if (gameMoveLeftButton) gameMoveLeftButton.disabled = false
+    if (gameMoveRightButton) gameMoveRightButton.disabled = false
+
+    clearStones()
+    void (async () => {
+      if (!rewardPlayer) {
+        await setGamePlayerSprite(false)
+        toast('게임 종료')
+        return
+      }
+
+      await setGamePlayerSprite(true)
+
+      const prev = await loadState()
+      const current = ensureToday(prev)
+      const reward = Math.max(0, Math.floor(gameScore))
+      const next: PetState = {
+        ...current,
+        goldenEggs: current.goldenEggs + reward,
+      }
+      const withLog = pushLog(next, `Game reward: +${reward} golden eggs (score)`)
+      await saveState(withLog)
+      renderState(withLog)
+      await setGamePlayerSprite(true)
+      toast(`게임 오버! 점수 ${reward}, 황금 달걀 +${reward}`)
+    })()
+  }
+
+  const runGameFrame = (now: number) => {
+    if (!gameRunning || !gameArena || !gamePlayer) return
+    if (lastFrameTime === 0) lastFrameTime = now
+    const dt = Math.max(0.008, Math.min(0.05, (now - lastFrameTime) / 1000))
+    lastFrameTime = now
+
+    const arenaH = gameArena.clientHeight
+    const playerRect = {
+      width: gamePlayer.clientWidth || 38,
+      height: gamePlayer.clientHeight || 38,
+      x: gamePlayerX - (gamePlayer.clientWidth || 38) / 2,
+      y: arenaH - (gamePlayer.clientHeight || 38) - 6,
+    }
+
+    for (const stone of stones) {
+      stone.y += stone.speed * dt
+      stone.element.style.top = `${Math.round(stone.y)}px`
+    }
+
+    let collided = false
+    stones = stones.filter((stone) => {
+      const sx = stone.x
+      const sy = stone.y
+      const hit =
+        sx < playerRect.x + playerRect.width &&
+        sx + stone.width > playerRect.x &&
+        sy < playerRect.y + playerRect.height &&
+        sy + stone.height > playerRect.y
+
+      if (hit) {
+        collided = true
+        stone.element.remove()
+        return false
+      }
+
+      if (sy > arenaH + 4) {
+        stone.element.remove()
+        gameScore += 10
+        syncGameScoreUi()
+        return false
+      }
+
+      return true
+    })
+
+    if (collided) {
+      endGame(true)
+      return
+    }
+
+    gameFrameId = window.requestAnimationFrame(runGameFrame)
+  }
+
+  const startStoneGame = async () => {
+    if (!gameArena || !gamePlayer || !gameStonesLayer) return
+    if (gameRunning) return
+
     const prev = await loadState()
     const current = ensureToday(prev)
-
     if (current.coins < GAME_PLAY_COST) {
       toast(`달걀이 부족해요. 돌 피하기는 달걀 ${GAME_PLAY_COST}개가 필요해요.`)
       return
@@ -809,46 +974,48 @@ const wireUi = async () => {
     await saveState(withCostLog)
     renderState(withCostLog)
 
-    const response = await runtimeRequest<GameResultResponse>({
-      type: 'HIGHTON_API_GAME_RESULT',
-      result: 'SUCCESS',
-    })
+    clearGameTimers()
+    clearStones()
+    gameScore = 0
+    syncGameScoreUi()
+    gameRunning = true
+    lastFrameTime = 0
 
-    if (!response.ok) {
-      const fallbackReward = 10
-      const fallbackState: PetState = {
-        ...withCostLog,
-        goldenEggs: withCostLog.goldenEggs + fallbackReward,
-      }
-      const withLog = pushLog(
-        fallbackState,
-        `Game reward (fallback): +${fallbackReward} golden eggs`,
-      )
-      await saveState(withLog)
-      renderState(withLog)
-      toast(`돌 피하기 완료! 달걀 -${GAME_PLAY_COST}, 황금 달걀 +${fallbackReward}`)
-      return
+    const arenaW = gameArena.clientWidth
+    gamePlayerX = Math.max(20, Math.floor(arenaW / 2))
+    gamePlayer.style.left = `${gamePlayerX}px`
+    await setGamePlayerSprite(false)
+
+    if (gameStartButton) {
+      gameStartButton.textContent = '진행 중'
     }
 
-    const reward = Math.max(0, Math.floor(response.data.eggs_earned))
-    const next: PetState = {
-      ...withCostLog,
-      goldenEggs: withCostLog.goldenEggs + reward,
-    }
-    const withLog = pushLog(next, `Game reward: +${reward} golden eggs`)
-    await saveState(withLog)
-    renderState(withLog)
-    toast(`돌 피하기 완료! 달걀 -${GAME_PLAY_COST}, 황금 달걀 +${reward}`)
+    gameSpawnTimerId = window.setInterval(spawnStone, 620)
+    gameFrameId = window.requestAnimationFrame(runGameFrame)
+    toast('게임 시작! 좌우 버튼/키보드 화살표로 돌을 피하세요.')
   }
 
-  gamePlayButton?.addEventListener('click', () => {
-    void playStoneDodge()
+  gameStartButton?.addEventListener('click', () => {
+    void startStoneGame()
   })
 
-  gamePlayButton?.addEventListener('keydown', (event) => {
-    if (event.key !== 'Enter' && event.key !== ' ') return
-    event.preventDefault()
-    void playStoneDodge()
+  gameMoveLeftButton?.addEventListener('click', () => {
+    moveGamePlayer(-20)
+  })
+
+  gameMoveRightButton?.addEventListener('click', () => {
+    moveGamePlayer(20)
+  })
+
+  window.addEventListener('keydown', (event) => {
+    if (!gameOpen) return
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault()
+      moveGamePlayer(-16)
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault()
+      moveGamePlayer(16)
+    }
   })
 
   bagButton?.addEventListener('click', () => {

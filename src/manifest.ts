@@ -2,13 +2,13 @@ import { defineManifest } from '@crxjs/vite-plugin'
 
 export default defineManifest({
   manifest_version: 3,
-  name: 'GitTama',
-  short_name: 'GitTama',
+  name: 'Chick hub',
+  short_name: 'Chick hub',
   description: 'GitHub에서 귀여운 펫을 키우는 데브 다마고치 위젯',
   version: '0.1.0',
   permissions: ['tabs', 'storage', 'scripting'],
   action: {
-    default_title: 'GitTama',
+    default_title: 'Chick hub',
     default_popup: 'index.html',
     default_icon: {
       16: 'icon-16.png',

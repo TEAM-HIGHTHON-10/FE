@@ -330,7 +330,7 @@ const withRuntimeResponse = async <T>(work: () => Promise<T>): Promise<RuntimeRe
 }
 
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('GitTama extension installed')
+  console.log('Chick hub extension installed')
 })
 
 chrome.runtime.onMessage.addListener((message: RuntimeRequest, _sender, sendResponse) => {

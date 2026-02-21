@@ -125,11 +125,28 @@ export const getLevelInfo = (totalExp: number) => {
   }
 }
 
-export const getPetAssetByTier = (tierKey: TierKey) => {
-  if (tierKey === 'Junior') return ICON_DATA_URLS.junior
-  if (tierKey === 'Mid') return ICON_DATA_URLS.mid
-  if (tierKey === 'Senior') return ICON_DATA_URLS.senior
-  return ICON_DATA_URLS.newbie
+export const getPetAssetByTier = (tierKey: TierKey, withHat = false) => {
+  if (tierKey === 'Junior') return withHat ? ICON_DATA_URLS.juniorHat : ICON_DATA_URLS.junior
+  if (tierKey === 'Mid') return withHat ? ICON_DATA_URLS.midHat : ICON_DATA_URLS.mid
+  if (tierKey === 'Senior') return withHat ? ICON_DATA_URLS.seniorHat : ICON_DATA_URLS.senior
+  return withHat ? ICON_DATA_URLS.newbieHat : ICON_DATA_URLS.newbie
+}
+
+export const getGamePetAssetByTier = (tierKey: TierKey, withHat = false, dead = false) => {
+  if (tierKey === 'Junior') {
+    if (dead) return ICON_DATA_URLS.juniorGameDie
+    return withHat ? ICON_DATA_URLS.juniorGameHat : ICON_DATA_URLS.juniorGame
+  }
+  if (tierKey === 'Mid') {
+    if (dead) return ICON_DATA_URLS.midGameDie
+    return withHat ? ICON_DATA_URLS.midGameHat : ICON_DATA_URLS.midGame
+  }
+  if (tierKey === 'Senior') {
+    if (dead) return ICON_DATA_URLS.seniorGameDie
+    return withHat ? ICON_DATA_URLS.seniorGameHat : ICON_DATA_URLS.seniorGame
+  }
+  if (dead) return ICON_DATA_URLS.newbieGameDie
+  return withHat ? ICON_DATA_URLS.newbieGameHat : ICON_DATA_URLS.newbieGame
 }
 
 export const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n))

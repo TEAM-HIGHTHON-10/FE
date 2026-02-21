@@ -7,7 +7,7 @@ export const POSITION_KEY = 'highton_widget_position'
 
 export const DEBUG = false
 
-export const EXP_PER_LEVEL = 360
+export const EXP_PER_LEVEL = 100
 export const LEVELS_PER_TIER = 1
 export const TIERS: ReadonlyArray<{ key: TierKey }> = [
   { key: 'Newbie' },
@@ -30,7 +30,7 @@ export const QUEST_ORDER: readonly QuestKey[] = ['commit1', 'pr1', 'review1'] as
 export const QUESTS: Record<QuestKey, { title: string; rewardCoins: number }> = {
   commit1: { title: 'commit 1회 하기', rewardCoins: 10 },
   pr1: { title: 'PR 1회 보내기', rewardCoins: 10 },
-  review1: { title: 'Review 1회 하기', rewardCoins: 10 },
+  review1: { title: 'Issue 1회 등록하기', rewardCoins: 10 },
 }
 
 export const EVENT_REWARDS: Record<SimEvent, { coins: number; exp: number; label: string }> = {
@@ -51,6 +51,8 @@ export const HAT_ANCHORS: Record<TierKey, HatAnchor> = {
     miniY: 5,
     miniHeadRatio: 0.42,
     miniHatWidth: 34,
+    miniBadgeX: 22,
+    miniBadgeY: -4,
   },
   Junior: {
     x: -5,
@@ -63,6 +65,8 @@ export const HAT_ANCHORS: Record<TierKey, HatAnchor> = {
     miniY: 10,
     miniHeadRatio: 0.36,
     miniHatWidth: 38,
+    miniBadgeX: 24,
+    miniBadgeY: -6,
   },
   Mid: {
     x: -10,
@@ -75,6 +79,8 @@ export const HAT_ANCHORS: Record<TierKey, HatAnchor> = {
     miniY: 1,
     miniHeadRatio: 0.32,
     miniHatWidth: 60,
+    miniBadgeX: 28,
+    miniBadgeY: -4,
   },
   Senior: {
     x: -25,
@@ -87,6 +93,8 @@ export const HAT_ANCHORS: Record<TierKey, HatAnchor> = {
     miniY: -5,
     miniHeadRatio: 0.26,
     miniHatWidth: 70,
+    miniBadgeX: 32,
+    miniBadgeY: -2,
   },
 }
 
