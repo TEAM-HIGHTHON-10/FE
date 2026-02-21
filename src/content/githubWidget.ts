@@ -332,7 +332,7 @@ const renderState = (state: PetState) => {
   if (miniCoins) miniCoins.textContent = formatCompactNumber(normalized.coins)
   if (miniExp) miniExp.textContent = `${info.expInLevel} / ${info.expMax}`
   if (feedCost) feedCost.textContent = formatCompactNumber(normalized.coins)
-  if (feedButton) feedButton.disabled = false
+  if (feedButton) feedButton.disabled = normalized.coins <= 0
   if (miniPet) {
     miniPet.src = getPetAssetByTier(info.tierKey)
     miniPet.alt = `${info.tierKey} pet`
@@ -681,6 +681,18 @@ const wireUi = async () => {
         return
       }
 
+      const local = ensureToday(await loadState())
+      const lockedEggs = Math.min(
+        Math.max(0, local.lockedEggs),
+        Math.max(0, statusResponse.data.eggCount),
+      )
+      const spendableEggs = Math.max(0, statusResponse.data.eggCount - lockedEggs)
+      if (spendableEggs <= 0) {
+        await applyBackendStatus(statusResponse.data, 'Sync: all eggs are locked by quests')
+        toast('먼저 퀘스트에서 보상을 받아야 밥주기를 할 수 있어요.')
+        return
+      }
+
       const response = await runtimeRequest<FeedResponse>({ type: 'HIGHTON_API_FEED' })
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
@@ -787,17 +799,19 @@ const wireUi = async () => {
           nextCounts.review = Math.max(0, nextCounts.review - 1)
         }
 
+        const released = Math.min(QUESTS[key].rewardCoins, current.lockedEggs)
+
         const next: PetState = {
           ...current,
-          coins: current.coins + QUESTS[key].rewardCoins,
+          coins: current.coins + released,
           lockedEggs: Math.max(0, current.lockedEggs - QUESTS[key].rewardCoins),
           counts: nextCounts,
         }
 
-        const withLog = pushLog(next, `Quest claimed: ${key} +${QUESTS[key].rewardCoins} coin`)
+        const withLog = pushLog(next, `Quest claimed: ${key} +${released} spendable eggs`)
         await saveState(withLog)
         renderState(withLog)
-        toast('보상 받기 완료!')
+        toast(`보상 받기 완료! +${released}`)
       })()
     })
   })
