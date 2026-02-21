@@ -219,8 +219,8 @@ const HAT_ANCHORS: Record<TierKey, HatAnchor> = {
     y: 10,
     headRatio: 0.4,
     hatWidth: 55,
-    toastGap: 10,
-    toastNoHatGap: 42,
+    toastGap: 20,
+    toastNoHatGap: 50,
     miniX: 2,
     miniY: 5,
     miniHeadRatio: 0.42,
@@ -897,6 +897,11 @@ const mountWidget = () => {
       z-index: 6;
     }
 
+    .miniDock.flipLeft .miniHoverCard {
+      left: auto;
+      right: 126px;
+    }
+
     .miniHoverCard::after {
       content: '';
       position: absolute;
@@ -907,6 +912,12 @@ const mountWidget = () => {
       height: 10px;
       background: rgba(255, 255, 255, 0.94);
       clip-path: polygon(100% 50%, 0 0, 0 100%);
+    }
+
+    .miniDock.flipLeft .miniHoverCard::after {
+      right: auto;
+      left: 100%;
+      clip-path: polygon(0 50%, 100% 0, 100% 100%);
     }
 
     .miniMeta {
@@ -1627,6 +1638,26 @@ const wireUi = async () => {
     void 0
   }
 
+  const miniDock = mounted.shadow.querySelector<HTMLElement>('[data-highton="miniDock"]')
+  const miniHover = mounted.shadow.querySelector<HTMLElement>('[data-highton="miniHover"]')
+
+  const updateMiniHoverDirection = () => {
+    if (!miniDock || !miniHover || !mounted.panel.classList.contains('minimized')) {
+      miniDock?.classList.remove('flipLeft')
+      return
+    }
+
+    const panelRect = mounted.panel.getBoundingClientRect()
+    const hoverWidth = Math.max(miniHover.getBoundingClientRect().width, 180)
+    const rightOverflow = panelRect.left + 126 + hoverWidth > window.innerWidth - 8
+
+    if (rightOverflow) {
+      miniDock.classList.add('flipLeft')
+    } else {
+      miniDock.classList.remove('flipLeft')
+    }
+  }
+
   const rerenderByCurrentState = () => {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -1650,6 +1681,8 @@ const wireUi = async () => {
     } catch {
       void 0
     }
+
+    requestAnimationFrame(updateMiniHoverDirection)
   }
 
   const applyMinimized = (minimized: boolean) => {
@@ -1673,6 +1706,7 @@ const wireUi = async () => {
     const rect = mounted.panel.getBoundingClientRect()
     applyPosition(rect.left, rect.top)
     rerenderByCurrentState()
+    requestAnimationFrame(updateMiniHoverDirection)
   }
 
   try {
@@ -1790,6 +1824,8 @@ const wireUi = async () => {
     }
     applyMinimized(false)
   })
+
+  window.addEventListener('resize', updateMiniHoverDirection)
 
   const petTalkTarget = mounted.shadow.querySelector<HTMLElement>('[data-highton="petTalk"]')
   const emitPetTalk = () => {
