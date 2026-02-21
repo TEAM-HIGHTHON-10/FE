@@ -122,6 +122,33 @@ export const createWidgetCss = (topOffset: number) => `
       position: relative;
     }
 
+    .miniQuestBadge {
+      position: absolute;
+      left: 0;
+      top: 0;
+      min-width: 20px;
+      height: 20px;
+      padding: 0 5px;
+      border-radius: 999px;
+      border: 2px solid rgba(255, 255, 255, 0.96);
+      background: linear-gradient(135deg, #ff7b67 0%, #ff3f57 100%);
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 6px 12px rgba(255, 63, 87, 0.35);
+      pointer-events: none;
+      z-index: 7;
+      transform: translate(-50%, -50%);
+    }
+
+    .miniQuestBadge[data-open='1'] {
+      display: inline-flex;
+    }
+
     .miniPet {
       width: 100%;
       height: 100%;
@@ -324,11 +351,18 @@ export const createWidgetCss = (topOffset: number) => `
       display: none;
     }
 
-    .coinPill {
-      box-sizing: border-box;
+    .hudPills {
       position: absolute;
       right: 12px;
       top: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      z-index: 4;
+    }
+
+    .coinPill {
+      box-sizing: border-box;
       width: auto;
       min-width: 72px;
       max-width: 140px;
@@ -341,6 +375,36 @@ export const createWidgetCss = (topOffset: number) => `
       border: 1px solid var(--frame-border);
       border-radius: 8px;
       background: var(--card-bg-2);
+    }
+
+    .goldPill {
+      box-sizing: border-box;
+      width: auto;
+      min-width: 72px;
+      max-width: 140px;
+      height: 26px;
+      padding: 4px 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 8px;
+      border: 1px solid rgba(248, 178, 37, 0.55);
+      border-radius: 8px;
+      background: rgba(48, 36, 15, 0.72);
+    }
+
+    .goldGlyphIcon {
+      width: 16px;
+      height: 16px;
+      object-fit: contain;
+      flex: none;
+    }
+
+    .eggGlyphIcon {
+      width: 16px;
+      height: 16px;
+      object-fit: contain;
+      flex: none;
     }
 
     .coinGlyph {
@@ -459,6 +523,100 @@ export const createWidgetCss = (topOffset: number) => `
       gap: 10px;
       overflow-x: auto;
       z-index: 5;
+    }
+
+    .gamePanel {
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      bottom: 8px;
+      min-height: 116px;
+      padding: 26px 12px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(248, 163, 26, 0.78);
+      background: rgba(34, 34, 34, 0.82);
+      display: none;
+      flex-direction: row;
+      gap: 10px;
+      overflow: hidden;
+      z-index: 6;
+      backdrop-filter: blur(14px);
+    }
+
+    .gamePanel[data-open='1'] {
+      display: flex;
+    }
+
+    .gameCard {
+      box-sizing: border-box;
+      width: 100%;
+      min-width: 0;
+      min-height: 116px;
+      border-radius: 12px;
+      border: 1px solid rgba(248, 163, 26, 0.95);
+      background:
+        radial-gradient(circle at 50% 80%, rgba(255, 167, 50, 0.28) 0%, rgba(0, 0, 0, 0) 46%),
+        linear-gradient(180deg, #be7c17 0%, #b87312 100%);
+      box-shadow:
+        inset 0 0 0 1px rgba(255, 230, 170, 0.2),
+        0 8px 20px rgba(0, 0, 0, 0.26);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      position: relative;
+      padding: 10px 8px;
+    }
+
+    .gameClose {
+      position: absolute;
+      top: 6px;
+      right: 8px;
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      background: rgba(34, 34, 34, 0.42);
+      color: #e8e8e8;
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0;
+      z-index: 1;
+    }
+
+    .gameClose:hover {
+      filter: brightness(1.08);
+    }
+
+    .gameStone {
+      width: 68px;
+      height: 52px;
+      object-fit: contain;
+      filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.22));
+    }
+
+    .gameReward {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+    }
+
+    .gameTitle {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0;
+      color: #fff;
+      line-height: 1.2;
+      text-align: center;
     }
 
     .shopClose {
@@ -782,6 +940,7 @@ export const createWidgetHtml = () => `
         <span class="miniPetWrap" aria-hidden="true">
           <img class="miniPet" data-highton="miniPet" src="${ICON_DATA_URLS.newbie}" alt="Newbie pet" />
           <img class="miniHat" data-highton="miniHat" src="${ICON_DATA_URLS.hat}" alt="" aria-hidden="true" />
+          <span class="miniQuestBadge" data-highton="miniQuestBadge" aria-hidden="true">0</span>
         </span>
       </button>
 
@@ -789,8 +948,13 @@ export const createWidgetHtml = () => `
         <div class="miniMeta">
           <div class="miniLv" data-highton="miniHoverLv">LV 1. Newbie</div>
           <div class="miniCoins">
+            <span class="miniLabel">Gold</span>
+            <img class="goldGlyphIcon" src="${ICON_DATA_URLS.goldEgg}" alt="" aria-hidden="true" />
+            <span data-highton="miniHoverGoldEggs">0</span>
+          </div>
+          <div class="miniCoins">
             <span class="miniLabel">Coin</span>
-            <span class="coinGlyph" aria-hidden="true"></span>
+            <img class="eggGlyphIcon" src="${ICON_DATA_URLS.egg}" alt="" aria-hidden="true" />
             <span data-highton="miniHoverCoins">360</span>
           </div>
           <div class="miniCoins"><span class="miniLabel">EXP</span> <span data-highton="miniHoverExp">0 / 100</span></div>
@@ -805,22 +969,36 @@ export const createWidgetHtml = () => `
           <img class="petHat" data-highton="petHat" src="${ICON_DATA_URLS.hat}" alt="" aria-hidden="true" />
         </div>
       </div>
-      <div class="coinPill" aria-label="coins">
-        <span class="coinGlyph" aria-hidden="true"></span>
-        <span class="coinText" data-highton="coins">360</span>
+      <div class="hudPills" aria-label="currencies">
+        <div class="goldPill" aria-label="gold eggs">
+          <img class="goldGlyphIcon" src="${ICON_DATA_URLS.goldEgg}" alt="" aria-hidden="true" />
+          <span class="coinText" data-highton="goldEggs">0</span>
+        </div>
+        <div class="coinPill" aria-label="eggs">
+          <img class="eggGlyphIcon" src="${ICON_DATA_URLS.egg}" alt="" aria-hidden="true" />
+          <span class="coinText" data-highton="coins">360</span>
+        </div>
       </div>
       <button class="bagBtn" type="button" data-highton="bag" aria-label="bag">
         <img class="bagIcon" src="${ICON_DATA_URLS.cart}" alt="" aria-hidden="true" />
       </button>
-      <button class="stageLeftBtn" type="button" data-highton="collapse" aria-label="collapse">
+      <button class="stageLeftBtn" type="button" data-highton="game" aria-label="open game panel">
         <img class="stageIcon" src="${ICON_DATA_URLS.game}" alt="" aria-hidden="true" />
       </button>
+      <section class="gamePanel" data-highton="gamePanel" aria-label="game panel">
+        <button class="gameClose" type="button" data-highton="gameClose" aria-label="close game panel">×</button>
+        <div class="gameCard" role="button" tabindex="0" data-highton="gamePlay" aria-label="play stone dodge">
+          <img class="gameStone" src="${ICON_DATA_URLS.stone}" alt="stone" />
+          <div class="gameReward"><img class="eggGlyphIcon" src="${ICON_DATA_URLS.egg}" alt="" aria-hidden="true" />10</div>
+          <div class="gameTitle">돌 피하기</div>
+        </div>
+      </section>
       <section class="shopPanel" data-highton="shopPanel" aria-label="shop">
         <button class="shopClose" type="button" data-highton="shopClose" aria-label="close shop">×</button>
         <button class="shopCard" type="button" data-highton="shop-item" data-item="straw_hat">
           <img class="shopIcon" src="${ICON_DATA_URLS.hat}" alt="" aria-hidden="true" />
           <div class="shopPrice">
-            <span class="coinGlyph" aria-hidden="true"></span>
+            <img class="goldGlyphIcon" src="${ICON_DATA_URLS.goldEgg}" alt="" aria-hidden="true" />
             <span data-highton="shop-price">100</span>
           </div>
           <div class="shopName">밀짚모자</div>
@@ -839,7 +1017,7 @@ export const createWidgetHtml = () => `
         <div class="expText" data-highton="expText">0 / 100</div>
       </div>
       <button class="feedBtn" type="button" data-highton="feed">
-        <span class="coinGlyph" aria-hidden="true"></span>
+        <img class="eggGlyphIcon" src="${ICON_DATA_URLS.egg}" alt="" aria-hidden="true" />
         <span data-highton="feedCost">0</span>
         <span>밥주기</span>
       </button>
@@ -852,7 +1030,7 @@ export const createWidgetHtml = () => `
           <div class="questRight">
             <div class="questReward">
               <span>보상:</span>
-              <span class="coinGlyph" aria-hidden="true"></span>
+              <img class="eggGlyphIcon" src="${ICON_DATA_URLS.egg}" alt="" aria-hidden="true" />
               <span data-highton="q_reward">${QUESTS.commit1.rewardCoins}</span>
             </div>
             <button class="questBtn" type="button" data-highton="q_claim" data-quest="commit1">받기</button>
@@ -864,7 +1042,7 @@ export const createWidgetHtml = () => `
           <div class="questRight">
             <div class="questReward">
               <span>보상:</span>
-              <span class="coinGlyph" aria-hidden="true"></span>
+              <img class="eggGlyphIcon" src="${ICON_DATA_URLS.egg}" alt="" aria-hidden="true" />
               <span data-highton="q_reward">${QUESTS.pr1.rewardCoins}</span>
             </div>
             <button class="questBtn" type="button" data-highton="q_claim" data-quest="pr1">받기</button>
@@ -876,7 +1054,7 @@ export const createWidgetHtml = () => `
           <div class="questRight">
             <div class="questReward">
               <span>보상:</span>
-              <span class="coinGlyph" aria-hidden="true"></span>
+              <img class="eggGlyphIcon" src="${ICON_DATA_URLS.egg}" alt="" aria-hidden="true" />
               <span data-highton="q_reward">${QUESTS.review1.rewardCoins}</span>
             </div>
             <button class="questBtn" type="button" data-highton="q_claim" data-quest="review1">받기</button>
