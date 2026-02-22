@@ -5,9 +5,6 @@ import { Cart } from './Cart'
 import { Game } from './Game'
 import { Junior } from './Junior'
 import { JuniorHat } from './JuniorHat'
-import { JuniorGame } from './JuniorGame'
-import { JuniorGameDie } from './JuniorGameDie'
-import { JuniorGameHat } from './JuniorGameHat'
 import { Mid } from './Mid'
 import { MidHat } from './MidHat'
 import { Newbie } from './Newbie'
@@ -21,7 +18,6 @@ import { Egg } from './Egg'
 import { NewbieGame } from './NewbieGame'
 import { JuniorGame } from './JuniorGame'
 import { MidGame } from './MidGame'
-import { Senior as SeniorGame } from './SeniorGame'
 import { NewbieGameDie } from './NewbieGameDie'
 import { JuniorGameDie } from './JuniorGameDie'
 import { MidGameDie } from './MidGameDie'
@@ -30,6 +26,7 @@ import { NewbieGameHat } from './NewbieGameHat'
 import { JuniorGameHat } from './JuniorGameHat'
 import { MidGameHat } from './MidGameHat'
 import { SeniorGameHat } from './SeniorGameHat'
+import { Senior as SeniorGame } from './SeniorGame'
 
 type SvgComponent = ComponentType<SVGProps<SVGSVGElement>>
 
@@ -66,5 +63,4 @@ export const ICON_DATA_URLS = {
   juniorGameHat: toDataUrl(JuniorGameHat),
   midGameHat: toDataUrl(MidGameHat),
   seniorGameHat: toDataUrl(SeniorGameHat),
-
 } as const
