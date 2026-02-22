@@ -1,6 +1,7 @@
 import { useEffect, useState, type ButtonHTMLAttributes, type ReactNode } from 'react'
 import styled from '@emotion/styled'
 import { colors, radius, spacing, typography } from './design-system'
+import { WEEKLY_STATS_KEY } from './content/widget/constants'
 import type {
   AuthStatusData,
   BackendLevel,
@@ -14,6 +15,82 @@ const sendRuntime = async <T,>(message: unknown): Promise<RuntimeResponse<T>> =>
 }
 
 type ActionTone = 'indigo' | 'emerald' | 'amber' | 'slate'
+
+type OnboardingState = {
+  dismissed: boolean
+  completed: boolean
+  webhookRepo: string | null
+}
+
+type WeeklySnapshot = {
+  commit: number
+  pr: number
+  review: number
+  exp: number
+  goldenEggs: number
+}
+
+type WeeklyStats = Record<string, WeeklySnapshot>
+
+type WeeklySummary = {
+  daysTracked: number
+  commits: number
+  prs: number
+  issues: number
+  totalActions: number
+  expDelta: number
+  eggsDelta: number
+  badge: string
+  text: string
+}
+
+const ONBOARDING_KEY = 'highton_popup_onboarding_v1'
+
+const getDayKey = (date: Date): string => {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+const clampToInt = (value: unknown): number => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 0
+  return Math.max(0, Math.floor(value))
+}
+
+const readWeeklyStats = (raw: unknown): WeeklyStats => {
+  if (!raw || typeof raw !== 'object') return {}
+  const stats: WeeklyStats = {}
+
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) continue
+    if (!value || typeof value !== 'object') continue
+    const src = value as Record<string, unknown>
+    stats[key] = {
+      commit: clampToInt(src.commit),
+      pr: clampToInt(src.pr),
+      review: clampToInt(src.review),
+      exp: clampToInt(src.exp),
+      goldenEggs: clampToInt(src.goldenEggs),
+    }
+  }
+
+  return stats
+}
+
+const getBadgeLabel = (totalActions: number): string => {
+  if (totalActions >= 40) return 'Legend Hatchmaster'
+  if (totalActions >= 25) return 'Sprint Builder'
+  if (totalActions >= 12) return 'Steady Committer'
+  if (totalActions >= 5) return 'Getting Started'
+  return 'Warm-up Chick'
+}
+
+const createDefaultOnboarding = (): OnboardingState => ({
+  dismissed: false,
+  completed: false,
+  webhookRepo: null,
+})
 
 type ActionButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   tone?: ActionTone
@@ -39,6 +116,69 @@ export const App = () => {
   const [selectedOrg, setSelectedOrg] = useState('')
   const [selectedRepoFullName, setSelectedRepoFullName] = useState('')
   const [statusText, setStatusText] = useState('')
+  const [onboarding, setOnboarding] = useState<OnboardingState>(createDefaultOnboarding())
+  const [weeklySummary, setWeeklySummary] = useState<WeeklySummary | null>(null)
+
+  const saveOnboardingState = async (next: OnboardingState) => {
+    setOnboarding(next)
+    await chrome.storage.local.set({ [ONBOARDING_KEY]: next })
+  }
+
+  const syncWeeklySummary = async (): Promise<WeeklySummary> => {
+    const result = await chrome.storage.local.get([WEEKLY_STATS_KEY])
+    const weekly = readWeeklyStats(result[WEEKLY_STATS_KEY] as unknown)
+
+    const base = new Date()
+    base.setHours(0, 0, 0, 0)
+
+    const keys: string[] = []
+    for (let offset = 6; offset >= 0; offset -= 1) {
+      const d = new Date(base)
+      d.setDate(base.getDate() - offset)
+      keys.push(getDayKey(d))
+    }
+
+    const snapshots = keys
+      .map((key) => weekly[key])
+      .filter((item): item is WeeklySnapshot => !!item)
+    const daysTracked = snapshots.length
+
+    const commits = snapshots.reduce((sum, item) => sum + item.commit, 0)
+    const prs = snapshots.reduce((sum, item) => sum + item.pr, 0)
+    const issues = snapshots.reduce((sum, item) => sum + item.review, 0)
+    const totalActions = commits + prs + issues
+
+    const first = snapshots[0]
+    const last = snapshots[snapshots.length - 1]
+    const expDelta = first && last ? Math.max(0, last.exp - first.exp) : 0
+    const eggsDelta = first && last ? Math.max(0, last.goldenEggs - first.goldenEggs) : 0
+    const badge = getBadgeLabel(totalActions)
+
+    const text = [
+      '🐣 Chick hub 주간 성장 리포트',
+      `- 트래킹 일수: ${daysTracked}/7일`,
+      `- 활동: Commit ${commits} · PR ${prs} · Issue ${issues}`,
+      `- 주간 합계 액션: ${totalActions}`,
+      `- 성장: EXP +${expDelta}, 황금 달걀 +${eggsDelta}`,
+      `- 이번 주 배지: ${badge}`,
+      '#ChickHub #GitHubHabit #DevTamagotchi',
+    ].join('\n')
+
+    const summary: WeeklySummary = {
+      daysTracked,
+      commits,
+      prs,
+      issues,
+      totalActions,
+      expDelta,
+      eggsDelta,
+      badge,
+      text,
+    }
+
+    setWeeklySummary(summary)
+    return summary
+  }
 
   const refreshAuthStatus = async () => {
     const response = await sendRuntime<AuthStatusData>({ type: 'HIGHTON_AUTH_STATUS' })
@@ -54,6 +194,19 @@ export const App = () => {
     let cancelled = false
 
     void (async () => {
+      const onboardingRaw = await chrome.storage.local.get([ONBOARDING_KEY])
+      if (!cancelled) {
+        const loaded = onboardingRaw[ONBOARDING_KEY] as unknown
+        if (loaded && typeof loaded === 'object') {
+          const parsed = loaded as Partial<OnboardingState>
+          setOnboarding({
+            dismissed: parsed.dismissed === true,
+            completed: parsed.completed === true,
+            webhookRepo: typeof parsed.webhookRepo === 'string' ? parsed.webhookRepo : null,
+          })
+        }
+      }
+
       const response = await sendRuntime<AuthStatusData>({ type: 'HIGHTON_AUTH_STATUS' })
       if (cancelled) return
 
@@ -63,6 +216,7 @@ export const App = () => {
       }
 
       setAuth(response.data)
+      await syncWeeklySummary()
     })()
 
     return () => {
@@ -185,9 +339,58 @@ export const App = () => {
         ? `이미 등록된 Webhook이에요. (${selectedRepoFullName})`
         : `Webhook 등록 완료: ${selectedRepoFullName} (id=${response.data.id})`,
     )
+
+    await saveOnboardingState({
+      dismissed: false,
+      completed: true,
+      webhookRepo: selectedRepoFullName,
+    })
+  }
+
+  const handleOnboardingNext = async () => {
+    if (!auth.authenticated) {
+      await handleLogin()
+      return
+    }
+
+    if (!selectedRepoFullName.includes('/')) {
+      if (orgs.length === 0) {
+        await handleLoadOrgs()
+        return
+      }
+
+      setStatusText('레포를 선택한 뒤 Webhook 등록을 눌러주세요.')
+      return
+    }
+
+    await handleRegisterWebhook()
+  }
+
+  const handleDismissOnboarding = async () => {
+    await saveOnboardingState({
+      ...onboarding,
+      dismissed: true,
+    })
+  }
+
+  const handleCopyWeeklyReport = async () => {
+    const data = await syncWeeklySummary()
+
+    try {
+      await navigator.clipboard.writeText(data.text)
+      setStatusText('주간 리포트가 클립보드에 복사됐어요. SNS/커뮤니티에 공유해보세요!')
+    } catch {
+      setStatusText('클립보드 복사에 실패했어요. 브라우저 권한을 확인해주세요.')
+    }
   }
 
   const selectedRepo = repos.find((repo) => repo.full_name === selectedRepoFullName)
+  const onboardingLoginDone = auth.authenticated
+  const onboardingRepoDone = selectedRepoFullName.includes('/')
+  const onboardingWebhookDone =
+    onboarding.completed ||
+    (onboarding.webhookRepo !== null && onboarding.webhookRepo === selectedRepoFullName)
+  const showOnboarding = !onboarding.completed && !onboarding.dismissed
 
   return (
     <Container>
@@ -214,6 +417,32 @@ export const App = () => {
           위젯 표시/숨김
         </ActionButton>
       </HeroCard>
+
+      {showOnboarding ? (
+        <SectionCard>
+          <SectionTitle>Quick Start</SectionTitle>
+          <MetaText>처음 설정은 아래 3단계만 완료하면 끝나요.</MetaText>
+          <OnboardingList>
+            <OnboardingItem done={onboardingLoginDone}>
+              {onboardingLoginDone ? '완료' : '진행 필요'} · GitHub 로그인
+            </OnboardingItem>
+            <OnboardingItem done={onboardingRepoDone}>
+              {onboardingRepoDone ? '완료' : '진행 필요'} · Organization/레포 선택
+            </OnboardingItem>
+            <OnboardingItem done={onboardingWebhookDone}>
+              {onboardingWebhookDone ? '완료' : '진행 필요'} · Webhook 등록
+            </OnboardingItem>
+          </OnboardingList>
+          <ActionGrid>
+            <ActionButton tone="indigo" onClick={handleOnboardingNext}>
+              다음 단계 실행
+            </ActionButton>
+            <ActionButton tone="slate" onClick={handleDismissOnboarding}>
+              가이드 숨기기
+            </ActionButton>
+          </ActionGrid>
+        </SectionCard>
+      ) : null}
 
       <SectionCard>
         <SectionTitle>Auth</SectionTitle>
@@ -283,6 +512,19 @@ export const App = () => {
         <ActionButton tone="indigo" onClick={handleRegisterWebhook}>
           Webhook 등록
         </ActionButton>
+      </SectionCard>
+
+      <SectionCard>
+        <SectionTitle>Share</SectionTitle>
+        <MetaText>최근 7일 활동을 요약해서 공유용 문구로 복사합니다.</MetaText>
+        <ActionButton tone="emerald" onClick={handleCopyWeeklyReport}>
+          주간 성장 리포트 복사
+        </ActionButton>
+        <SharePreview>
+          {weeklySummary
+            ? `배지: ${weeklySummary.badge} · Commit ${weeklySummary.commits} · PR ${weeklySummary.prs} · Issue ${weeklySummary.issues}`
+            : '아직 요약 데이터가 없어요. 활동 후 복사 버튼을 눌러보세요.'}
+        </SharePreview>
       </SectionCard>
 
       <StatusBanner>{statusText || '준비됨'}</StatusBanner>
@@ -405,6 +647,27 @@ const RepoMeta = styled.p`
   color: #4e5d74;
   font-size: 12px;
   font-weight: 600;
+`
+
+const OnboardingList = styled.ul`
+  margin: 0;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+`
+
+const OnboardingItem = styled.li<{ done: boolean }>`
+  color: ${(props) => (props.done ? '#1e7f4f' : '#5e6a7e')};
+  font-size: 12px;
+  font-weight: ${(props) => (props.done ? 700 : 600)};
+`
+
+const SharePreview = styled.p`
+  margin: 0;
+  color: #54637a;
+  font-size: 12px;
+  line-height: 1.45;
 `
 
 const ActionGrid = styled.div`

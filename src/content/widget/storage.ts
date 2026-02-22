@@ -1,6 +1,56 @@
-import { QUEST_ORDER, STORAGE_KEY } from './constants'
+import { QUEST_ORDER, STORAGE_KEY, WEEKLY_STATS_KEY } from './constants'
 import { clampExp, createDefaultState, ensureToday, getDayKey } from './logic'
 import type { AccessoryKey, DailyCounts, LogItem, Mood, PetState, QuestState } from './types'
+
+type WeeklySnapshot = {
+  commit: number
+  pr: number
+  review: number
+  exp: number
+  goldenEggs: number
+  updatedAt: number
+}
+
+type WeeklyStats = Record<string, WeeklySnapshot>
+
+const MAX_WEEKLY_STATS_DAYS = 35
+
+const toNonNegativeInt = (value: unknown): number => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 0
+  return Math.max(0, Math.floor(value))
+}
+
+const normalizeWeeklyStats = (raw: unknown): WeeklyStats => {
+  if (!raw || typeof raw !== 'object') return {}
+
+  const entries = Object.entries(raw as Record<string, unknown>)
+  const normalized: WeeklyStats = {}
+
+  for (const [dayKey, snapshot] of entries) {
+    if (typeof dayKey !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) continue
+    if (!snapshot || typeof snapshot !== 'object') continue
+
+    const candidate = snapshot as Record<string, unknown>
+    normalized[dayKey] = {
+      commit: toNonNegativeInt(candidate.commit),
+      pr: toNonNegativeInt(candidate.pr),
+      review: toNonNegativeInt(candidate.review),
+      exp: toNonNegativeInt(candidate.exp),
+      goldenEggs: toNonNegativeInt(candidate.goldenEggs),
+      updatedAt: toNonNegativeInt(candidate.updatedAt),
+    }
+  }
+
+  return normalized
+}
+
+const pruneWeeklyStats = (stats: WeeklyStats): WeeklyStats => {
+  const ordered = Object.entries(stats)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .slice(-MAX_WEEKLY_STATS_DAYS)
+
+  return Object.fromEntries(ordered)
+}
 
 export const loadState = async (): Promise<PetState> => {
   const result = await chrome.storage.local.get([STORAGE_KEY])
@@ -108,5 +158,21 @@ export const loadState = async (): Promise<PetState> => {
 }
 
 export const saveState = async (state: PetState): Promise<void> => {
-  await chrome.storage.local.set({ [STORAGE_KEY]: state })
+  const dayKey = typeof state.dayKey === 'string' ? state.dayKey : getDayKey()
+  const previous = await chrome.storage.local.get([WEEKLY_STATS_KEY])
+  const weekly = normalizeWeeklyStats(previous[WEEKLY_STATS_KEY] as unknown)
+
+  weekly[dayKey] = {
+    commit: toNonNegativeInt(state.counts.commit),
+    pr: toNonNegativeInt(state.counts.pr),
+    review: toNonNegativeInt(state.counts.review),
+    exp: toNonNegativeInt(state.exp),
+    goldenEggs: toNonNegativeInt(state.goldenEggs),
+    updatedAt: Date.now(),
+  }
+
+  await chrome.storage.local.set({
+    [STORAGE_KEY]: state,
+    [WEEKLY_STATS_KEY]: pruneWeeklyStats(weekly),
+  })
 }

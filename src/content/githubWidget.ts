@@ -923,7 +923,7 @@ const wireUi = async () => {
   const moveGamePlayer = (delta: number) => {
     if (!gameArena || !gamePlayer) return
     const arenaW = gameArena.clientWidth
-    const playerW = gamePlayer.clientWidth || 38
+    const playerW = gamePlayer.clientWidth || 30
     const minX = playerW / 2
     const maxX = Math.max(minX, arenaW - playerW / 2)
     gamePlayerX = clamp(gamePlayerX + delta, minX, maxX)
@@ -1024,8 +1024,8 @@ const wireUi = async () => {
     lastFrameTime = now
 
     const arenaH = gameArena.clientHeight
-    const playerW = gamePlayer.clientWidth || 82
-    const playerH = gamePlayer.clientHeight || 82
+    const playerW = gamePlayer.clientWidth || 68
+    const playerH = gamePlayer.clientHeight || 68
     const playerRect = {
       width: playerW,
       height: playerH,

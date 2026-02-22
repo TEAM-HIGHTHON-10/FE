@@ -160,9 +160,9 @@ export const createWidgetCss = (topOffset: number) => `
     }
 
     .frame[data-highton-game-active='1'] .gamePlayer {
-      width: 110px;
-      height: 110px;
-      bottom: 18px;
+      width: 84px;
+      height: 84px;
+      bottom: 16px;
     }
 
     .frame[data-highton-game-active='1'] .gameFallingStone {
@@ -864,8 +864,8 @@ export const createWidgetCss = (topOffset: number) => `
       position: absolute;
       left: 50%;
       bottom: 14px;
-      width: 82px;
-      height: 82px;
+      width: 68px;
+      height: 68px;
       object-fit: contain;
       transform: translateX(-50%);
       filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.35));

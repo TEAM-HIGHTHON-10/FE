@@ -415,16 +415,11 @@ chrome.runtime.onMessage.addListener((message: RuntimeRequest, _sender, sendResp
           } catch (error) {
             const status = (error as { status?: unknown }).status
             const messageText = error instanceof Error ? error.message : ''
-            const alreadyExists = messageText.includes('Hook already exists')
-            if (status === 422) {
-              return {
-                id: -1,
-                type: 'Repository',
-                name: 'web',
-                active: true,
-                events: ['issues', 'member', 'pull_request', 'push'],
-              }
-            }
+            const alreadyExists =
+              messageText.includes('Hook already exists') ||
+              messageText.toLowerCase().includes('already exists') ||
+              status === 409
+
             if (alreadyExists) {
               return {
                 id: -1,

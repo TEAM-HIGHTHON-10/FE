@@ -2,6 +2,7 @@ import type { AccessoryKey, HatAnchor, Mood, QuestKey, SimEvent, TierKey } from 
 
 export const ROOT_ID = 'highton-github-widget-root'
 export const STORAGE_KEY = 'highton_pet_state_v2'
+export const WEEKLY_STATS_KEY = 'highton_weekly_stats_v1'
 export const MINIMIZE_KEY = 'highton_widget_minimized'
 export const POSITION_KEY = 'highton_widget_position'
 
