@@ -43,6 +43,133 @@ export const createWidgetCss = (topOffset: number) => `
         sans-serif;
     }
 
+    .authGate {
+      width: 432px;
+      min-height: 360px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(18, 18, 20, 0.42);
+      color: rgba(255, 255, 255, 0.95);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      backdrop-filter: blur(12px);
+    }
+
+    .frame[data-highton-auth='0'] .stage,
+    .frame[data-highton-auth='0'] .status,
+    .frame[data-highton-auth='0'] .quests {
+      display: none;
+    }
+
+    .frame[data-highton-auth='0'] .authGate {
+      display: flex;
+    }
+
+    .frame[data-highton-game-active='1'] {
+      height: 580px;
+      gap: 0;
+    }
+
+    .frame[data-highton-game-active='1'] .toolbar,
+    .frame[data-highton-game-active='1'] .status,
+    .frame[data-highton-game-active='1'] .quests,
+    .frame[data-highton-game-active='1'] .hudPills,
+    .frame[data-highton-game-active='1'] .bagBtn,
+    .frame[data-highton-game-active='1'] .stageLeftBtn,
+    .frame[data-highton-game-active='1'] .shopPanel,
+    .frame[data-highton-game-active='1'] .gameMenu,
+    .frame[data-highton-game-active='1'] .gameClose,
+    .frame[data-highton-game-active='1'] .gameControls,
+    .frame[data-highton-game-active='1'] .gameHint,
+    .frame[data-highton-game-active='1'] .gameReward {
+      display: none !important;
+    }
+
+    .frame[data-highton-game-active='1'] .stage {
+      width: 432px;
+      height: 532px;
+      padding: 0;
+      gap: 0;
+      border-radius: 10px;
+      background: url('${ICON_DATA_URLS.background}') center / cover no-repeat;
+    }
+
+    .frame[data-highton-game-active='1'] .stageInner {
+      display: none;
+    }
+
+    .frame[data-highton-game-active='1'] .gamePanel {
+      left: 0;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      min-height: 100%;
+      padding: 10px;
+      border-radius: 0;
+      border: 0;
+      background: rgba(19, 22, 28, 0.78);
+      display: flex;
+      z-index: 10;
+    }
+
+    .frame[data-highton-game-active='1'] .gamePanel[data-mode='play'] .gamePlayView {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .frame[data-highton-game-active='1'] .gameCard {
+      min-height: 100%;
+      padding: 8px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(20, 20, 22, 0.46);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    }
+
+    .frame[data-highton-game-active='1'] .gameHud {
+      justify-content: center;
+      margin-bottom: 4px;
+    }
+
+    .frame[data-highton-game-active='1'] .gameScore {
+      font-size: 58px;
+      line-height: 1;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      text-shadow: 0 3px 0 rgba(0, 0, 0, 0.2);
+    }
+
+    .frame[data-highton-game-active='1'] .gameArena {
+      flex: 1;
+      height: auto;
+      min-height: 0;
+      border-radius: 14px;
+      border: 0;
+      background: url('${ICON_DATA_URLS.background}') center / cover no-repeat;
+    }
+
+    .frame[data-highton-game-active='1'] .gameArena::before,
+    .frame[data-highton-game-active='1'] .gameArena::after {
+      display: none;
+    }
+
+    .frame[data-highton-game-active='1'] .gamePlayer {
+      width: 110px;
+      height: 110px;
+      bottom: 18px;
+    }
+
+    .frame[data-highton-game-active='1'] .gameFallingStone {
+      width: 60px;
+      height: 46px;
+    }
+
     .toolbar {
       width: 100%;
       height: 22px;
@@ -564,16 +691,94 @@ export const createWidgetCss = (topOffset: number) => `
       display: flex;
       flex-direction: column;
       align-items: stretch;
-      justify-content: flex-start;
+      justify-content: center;
       gap: 6px;
       position: relative;
       padding: 8px;
     }
 
+    .gameMenu {
+      width: 100%;
+      display: flex;
+      align-items: stretch;
+    }
+
+    .gameEnterBtn {
+      width: 100%;
+      min-height: 116px;
+      border-radius: 10px;
+      border: 1px solid rgba(248, 163, 26, 0.95);
+      background:
+        radial-gradient(circle at 50% 85%, rgba(255, 167, 50, 0.3) 0%, rgba(0, 0, 0, 0) 52%),
+        linear-gradient(180deg, #c57d13 0%, #b87312 100%);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      padding: 10px 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+
+    .gameEnterBtn:hover {
+      filter: brightness(1.03);
+    }
+
+    .gameMenuStone {
+      width: 68px;
+      height: 52px;
+      object-fit: contain;
+      filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.22));
+    }
+
+    .gameMenuReward {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+    }
+
+    .gameMenuTitle {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0;
+      color: #fff;
+      line-height: 1.2;
+      text-align: center;
+    }
+
+    .gamePlayView {
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .gamePanel[data-mode='menu'] .gameMenu {
+      display: flex;
+    }
+
+    .gamePanel[data-mode='menu'] .gamePlayView {
+      display: none;
+    }
+
+    .gamePanel[data-mode='play'] .gameMenu {
+      display: none;
+    }
+
+    .gamePanel[data-mode='play'] .gamePlayView {
+      display: flex;
+    }
+
     .gameHud {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: center;
       gap: 8px;
     }
 
@@ -581,21 +786,62 @@ export const createWidgetCss = (topOffset: number) => `
       display: inline-flex;
       align-items: center;
       gap: 5px;
-      font-size: 12px;
-      font-weight: 700;
+      font-size: 42px;
+      font-weight: 900;
       color: #fff;
       line-height: 1;
+      text-shadow: 0 3px 0 rgba(0, 0, 0, 0.18);
     }
 
     .gameArena {
       position: relative;
-      height: 118px;
+      height: 330px;
       border-radius: 10px;
-      border: 1px solid rgba(255, 233, 185, 0.3);
+      border: 1px solid rgba(255, 214, 142, 0.4);
       background:
-        radial-gradient(circle at 50% 12%, rgba(245, 226, 178, 0.34), rgba(245, 226, 178, 0) 40%),
-        linear-gradient(180deg, rgba(88, 48, 7, 0.35), rgba(43, 21, 3, 0.5));
+        repeating-linear-gradient(
+          90deg,
+          rgba(97, 56, 21, 0.12) 0,
+          rgba(97, 56, 21, 0.12) 2px,
+          rgba(0, 0, 0, 0) 2px,
+          rgba(0, 0, 0, 0) 36px
+        ),
+        linear-gradient(180deg, #c88242 0%, #bc7335 52%, #a7612c 100%);
       overflow: hidden;
+    }
+
+    .gameArena::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 48%;
+      background:
+        repeating-linear-gradient(
+          105deg,
+          rgba(120, 66, 31, 0.22) 0,
+          rgba(120, 66, 31, 0.22) 2px,
+          rgba(0, 0, 0, 0) 2px,
+          rgba(0, 0, 0, 0) 40px
+        ),
+        linear-gradient(180deg, rgba(210, 138, 75, 0.16), rgba(150, 83, 40, 0.28));
+      pointer-events: none;
+    }
+
+    .gameArena::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 54%;
+      width: 140px;
+      height: 64px;
+      transform: translateX(-50%);
+      border-radius: 40px 40px 0 0;
+      background: linear-gradient(180deg, rgba(145, 174, 70, 0.95) 0%, rgba(116, 151, 52, 0.95) 100%);
+      border: 3px solid rgba(176, 118, 57, 0.85);
+      border-bottom: 0;
+      pointer-events: none;
     }
 
     .gameStonesLayer {
@@ -606,10 +852,10 @@ export const createWidgetCss = (topOffset: number) => `
 
     .gameFallingStone {
       position: absolute;
-      width: 26px;
-      height: 20px;
+      width: 44px;
+      height: 34px;
       object-fit: contain;
-      filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.45));
+      filter: drop-shadow(0 5px 6px rgba(0, 0, 0, 0.36));
       pointer-events: none;
       will-change: transform;
     }
@@ -617,9 +863,9 @@ export const createWidgetCss = (topOffset: number) => `
     .gamePlayer {
       position: absolute;
       left: 50%;
-      bottom: 6px;
-      width: 38px;
-      height: 38px;
+      bottom: 14px;
+      width: 82px;
+      height: 82px;
       object-fit: contain;
       transform: translateX(-50%);
       filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.35));
@@ -629,34 +875,26 @@ export const createWidgetCss = (topOffset: number) => `
 
     .gameControls {
       display: grid;
-      grid-template-columns: 1fr auto 1fr;
+      grid-template-columns: 1fr 1fr;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
     }
 
-    .gameMoveBtn,
-    .gameStartBtn {
-      height: 26px;
+    .gameMoveBtn {
+      height: 30px;
       border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.34);
-      background: rgba(18, 18, 18, 0.34);
+      border: 1px solid rgba(255, 220, 160, 0.58);
+      background: rgba(60, 26, 8, 0.45);
       color: #fff;
-      font-size: 12px;
+      font-size: 14px;
       font-weight: 700;
       cursor: pointer;
       padding: 0 10px;
     }
 
-    .gameMoveBtn:disabled,
-    .gameStartBtn:disabled {
+    .gameMoveBtn:disabled {
       opacity: 0.45;
       cursor: not-allowed;
-    }
-
-    .gameStartBtn {
-      min-width: 76px;
-      background: rgba(255, 180, 60, 0.22);
-      border-color: rgba(255, 214, 135, 0.72);
     }
 
     .gameHint {
@@ -691,29 +929,20 @@ export const createWidgetCss = (topOffset: number) => `
     }
 
     .gameStone {
-      width: 20px;
-      height: 16px;
+      width: 28px;
+      height: 22px;
       object-fit: contain;
-      filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.22));
+      filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.28));
     }
 
     .gameReward {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      font-size: 20px;
+      gap: 4px;
+      font-size: 11px;
       font-weight: 700;
-      color: #fff;
+      color: rgba(255, 246, 230, 0.95);
       line-height: 1;
-    }
-
-    .gameTitle {
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0;
-      color: #fff;
-      line-height: 1.2;
-      text-align: center;
     }
 
 
@@ -1033,6 +1262,8 @@ export const createWidgetHtml = () => `
       <button class="toolBtn" type="button" data-highton="minimize" aria-label="minimize">—</button>
     </section>
 
+    <section class="authGate" aria-label="auth gate">GitHub 로그인을 해주세요</section>
+
     <section class="miniDock" data-highton="miniDock" aria-label="minimized widget">
       <button class="miniDockBtn" type="button" data-highton="miniRestore" aria-label="restore widget">
         <span class="miniPetWrap" aria-hidden="true">
@@ -1084,24 +1315,35 @@ export const createWidgetHtml = () => `
         <img class="stageIcon" src="${ICON_DATA_URLS.game}" alt="" aria-hidden="true" />
       </button>
 
-      <section class="gamePanel" data-highton="gamePanel" aria-label="game panel">
+      <section class="gamePanel" data-highton="gamePanel" data-mode="menu" aria-label="game panel">
         <button class="gameClose" type="button" data-highton="gameClose" aria-label="close game panel">×</button>
         <div class="gameCard" aria-label="stone dodge game">
-          <div class="gameHud">
-            <div class="gameScore">점수 <span data-highton="gameScore">0</span></div>
-            <div class="gameReward"><img class="goldGlyphIcon" src="${ICON_DATA_URLS.goldEgg}" alt="" aria-hidden="true" />점수=보상</div>
-            <img class="gameStone" src="${ICON_DATA_URLS.stone}" alt="" aria-hidden="true" />
+          <div class="gameMenu" data-highton="gameMenu">
+            <button class="gameEnterBtn" type="button" data-highton="gameEnter" aria-label="enter stone game">
+              <img class="gameMenuStone" src="${ICON_DATA_URLS.stone}" alt="stone" />
+              <div class="gameMenuReward"><img class="eggGlyphIcon" src="${ICON_DATA_URLS.egg}" alt="" aria-hidden="true" />10</div>
+              <div class="gameMenuTitle">돌 피하기</div>
+            </button>
           </div>
-          <div class="gameArena" data-highton="gameArena">
-            <div class="gameStonesLayer" data-highton="gameStones"></div>
-            <img class="gamePlayer" data-highton="gamePlayer" src="${ICON_DATA_URLS.newbieGame}" alt="game character" />
+          <div class="gamePlayView" data-highton="gamePlayView">
+            <div class="gameHud">
+              <div class="gameScore"><span data-highton="gameScore">0</span>점</div>
+              <div class="gameReward">
+                <img class="goldGlyphIcon" src="${ICON_DATA_URLS.goldEgg}" alt="" aria-hidden="true" />
+                점수=보상
+                <img class="gameStone" src="${ICON_DATA_URLS.stone}" alt="" aria-hidden="true" />
+              </div>
+            </div>
+            <div class="gameArena" data-highton="gameArena">
+              <div class="gameStonesLayer" data-highton="gameStones"></div>
+              <img class="gamePlayer" data-highton="gamePlayer" src="${ICON_DATA_URLS.newbieGame}" alt="game character" />
+            </div>
+            <div class="gameControls">
+              <button class="gameMoveBtn" type="button" data-highton="gameMoveLeft" aria-label="move left">◀ 왼쪽</button>
+              <button class="gameMoveBtn" type="button" data-highton="gameMoveRight" aria-label="move right">오른쪽 ▶</button>
+            </div>
+            <div class="gameHint">키보드 ← → 로도 이동 가능, 돌 1개 회피 시 +10점</div>
           </div>
-          <div class="gameControls">
-            <button class="gameMoveBtn" type="button" data-highton="gameMoveLeft" aria-label="move left">◀</button>
-            <button class="gameStartBtn" type="button" data-highton="gameStart" aria-label="start game">시작</button>
-            <button class="gameMoveBtn" type="button" data-highton="gameMoveRight" aria-label="move right">▶</button>
-          </div>
-          <div class="gameHint">돌을 1개 피할 때마다 +10점 (게임 오버 시 점수만큼 황금 달걀)</div>
         </div>
       </section>
 
@@ -1131,7 +1373,7 @@ export const createWidgetHtml = () => `
       <button class="feedBtn" type="button" data-highton="feed">
         <img class="eggGlyphIcon" src="${ICON_DATA_URLS.egg}" alt="" aria-hidden="true" />
         <span data-highton="feedCost">0</span>
-        <span>밥주기</span>
+        <span>성장하기</span>
       </button>
     </section>
 
