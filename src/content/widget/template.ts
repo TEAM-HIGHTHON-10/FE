@@ -525,6 +525,7 @@ export const createWidgetCss = (topOffset: number) => `
       z-index: 5;
     }
 
+
     .gamePanel {
       position: absolute;
       left: 8px;
@@ -714,6 +715,7 @@ export const createWidgetCss = (topOffset: number) => `
       line-height: 1.2;
       text-align: center;
     }
+
 
     .shopClose {
       position: absolute;
@@ -1081,6 +1083,7 @@ export const createWidgetHtml = () => `
       <button class="stageLeftBtn" type="button" data-highton="game" aria-label="open game panel">
         <img class="stageIcon" src="${ICON_DATA_URLS.game}" alt="" aria-hidden="true" />
       </button>
+
       <section class="gamePanel" data-highton="gamePanel" aria-label="game panel">
         <button class="gameClose" type="button" data-highton="gameClose" aria-label="close game panel">×</button>
         <div class="gameCard" aria-label="stone dodge game">
@@ -1101,6 +1104,7 @@ export const createWidgetHtml = () => `
           <div class="gameHint">돌을 1개 피할 때마다 +10점 (게임 오버 시 점수만큼 황금 달걀)</div>
         </div>
       </section>
+
       <section class="shopPanel" data-highton="shopPanel" aria-label="shop">
         <button class="shopClose" type="button" data-highton="shopClose" aria-label="close shop">×</button>
         <button class="shopCard" type="button" data-highton="shop-item" data-item="straw_hat">

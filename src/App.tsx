@@ -29,7 +29,6 @@ const ActionButton = ({ tone = 'indigo', children, ...props }: ActionButtonProps
 }
 
 export const App = () => {
-  const TEST_COIN_AMOUNT = 200
   const [auth, setAuth] = useState<AuthStatusData>({
     authenticated: false,
     username: null,
@@ -76,25 +75,6 @@ export const App = () => {
     if (!tab?.id) return
 
     await chrome.tabs.sendMessage(tab.id, { type: 'HIGHTON_TOGGLE_WIDGET' })
-  }
-
-  const handleResetState = async () => {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-    if (!tab?.id) return
-
-    await chrome.tabs.sendMessage(tab.id, {
-      type: 'HIGHTON_RESET_STATE',
-    })
-  }
-
-  const handleAddTestCoins = async () => {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-    if (!tab?.id) return
-
-    await chrome.tabs.sendMessage(tab.id, {
-      type: 'HIGHTON_ADD_TEST_COINS',
-      amount: TEST_COIN_AMOUNT,
-    })
   }
 
   const handleLogin = async () => {
@@ -220,15 +200,15 @@ export const App = () => {
                 d="M12 2C6.477 2 2 6.477 2 12a9.998 9.998 0 0 0 6.838 9.488c.5.092.682-.217.682-.482 0-.237-.009-.866-.014-1.7-2.782.605-3.369-1.341-3.369-1.341-.454-1.154-1.11-1.462-1.11-1.462-.907-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.944 0-1.092.39-1.986 1.03-2.686-.103-.253-.447-1.273.098-2.654 0 0 .84-.269 2.75 1.026A9.563 9.563 0 0 1 12 6.84c.85.004 1.705.115 2.504.337 1.909-1.295 2.747-1.026 2.747-1.026.547 1.381.203 2.401.1 2.654.642.7 1.029 1.594 1.029 2.686 0 3.843-2.339 4.688-4.566 4.936.359.309.679.92.679 1.854 0 1.337-.012 2.416-.012 2.744 0 .268.18.58.688.481A10.002 10.002 0 0 0 22 12c0-5.523-4.477-10-10-10z"
               />
             </GitHubMark>
-            <Title>GitTama</Title>
+            <Title>Chick hub</Title>
           </TitleWrap>
           <LevelPill active={auth.authenticated}>
             {auth.authenticated ? (auth.level ?? 'CONNECTED') : 'OFFLINE'}
           </LevelPill>
         </HeroTop>
         <Description>
-          GitHub OAuth 로그인 후 GiTama 백엔드와 연동됩니다. 위젯 토글, webhook 등록, 테스트 액션을
-          한 곳에서 관리하세요.
+          GitHub OAuth 로그인 후 Chick hub 백엔드와 연동됩니다. 위젯 토글, webhook 등록, 테스트
+          액션을 한 곳에서 관리하세요.
         </Description>
         <ActionButton tone="slate" onClick={handleToggleWidget}>
           위젯 표시/숨김
@@ -305,18 +285,6 @@ export const App = () => {
         </ActionButton>
       </SectionCard>
 
-      <SectionCard>
-        <SectionTitle>State</SectionTitle>
-        <ButtonRow>
-          <ActionButton tone="emerald" onClick={handleAddTestCoins}>
-            테스트 코인 +{TEST_COIN_AMOUNT}
-          </ActionButton>
-          <ActionButton tone="amber" onClick={handleResetState}>
-            Reset
-          </ActionButton>
-        </ButtonRow>
-      </SectionCard>
-
       <StatusBanner>{statusText || '준비됨'}</StatusBanner>
     </Container>
   )
@@ -364,10 +332,11 @@ const TitleWrap = styled.div`
 
 const Title = styled.h1`
   margin: 0;
-  font-size: 42px;
+  font-size: 34px;
   line-height: 1;
   letter-spacing: -0.02em;
   color: #1a2540;
+  white-space: nowrap;
 `
 
 const GitHubMark = styled.svg`
@@ -436,12 +405,6 @@ const RepoMeta = styled.p`
   color: #4e5d74;
   font-size: 12px;
   font-weight: 600;
-`
-
-const ButtonRow = styled.div`
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: ${spacing.sm};
 `
 
 const ActionGrid = styled.div`
