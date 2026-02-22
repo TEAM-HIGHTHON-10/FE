@@ -1,4 +1,14 @@
-import type { AccessoryKey, HatAnchor, Mood, QuestKey, SimEvent, TierKey } from './types'
+import type {
+  BuffKey,
+  HatAnchor,
+  Mood,
+  QuestDefinition,
+  QuestKey,
+  QuestMetric,
+  ShopItemKey,
+  SimEvent,
+  TierKey,
+} from './types'
 
 export const ROOT_ID = 'highton-github-widget-root'
 export const STORAGE_KEY = 'highton_pet_state_v2'
@@ -21,18 +31,123 @@ export const MAX_TOTAL_EXP = (MAX_LEVEL_INDEX + 1) * EXP_PER_LEVEL
 
 export const COMMIT_COOLDOWN_MS = 60_000
 export const TEST_COIN_AMOUNT = 200
+export const QUEST_REROLL_COST = 25
+export const GAME_REVIVE_COST = 15
+export const BUFF_DURATION_MS = 24 * 60 * 60 * 1000
 
-export const SHOP_ITEMS: Array<{ key: AccessoryKey; name: string; price: number }> = [
-  { key: 'straw_hat', name: '밀짚모자', price: 100 },
+export const SHOP_ITEMS: Array<{
+  key: ShopItemKey
+  name: string
+  price: number
+  category: 'cosmetic' | 'upgrade'
+  passive: boolean
+  buffKey?: BuffKey
+  description: string
+}> = [
+  {
+    key: 'straw_hat',
+    name: '밀짚모자',
+    price: 100,
+    category: 'cosmetic',
+    passive: false,
+    description: '대표 코스메틱 아이템',
+  },
+  {
+    key: 'sprint_shoes',
+    name: '스프린트 슈즈',
+    price: 140,
+    category: 'upgrade',
+    passive: true,
+    description: '돌 피하기 입장 비용 -3 달걀',
+  },
+  {
+    key: 'lucky_clover',
+    name: '럭키 클로버',
+    price: 160,
+    category: 'upgrade',
+    passive: true,
+    description: '퀘스트 보상 +20%',
+  },
+  {
+    key: 'stone_guard',
+    name: '스톤 가드',
+    price: 180,
+    category: 'upgrade',
+    passive: true,
+    description: '돌 피하기 충돌 판정 12% 감소',
+  },
+  {
+    key: 'quest_boost_24h',
+    name: '퀘스트 부스터 24h',
+    price: 90,
+    category: 'upgrade',
+    passive: false,
+    buffKey: 'questBoost',
+    description: '24시간 퀘스트 보상 +10%',
+  },
+  {
+    key: 'game_discount_24h',
+    name: '게임 할인권 24h',
+    price: 80,
+    category: 'upgrade',
+    passive: false,
+    buffKey: 'gameDiscount',
+    description: '24시간 돌 피하기 입장 비용 -2',
+  },
+  {
+    key: 'feed_boost_24h',
+    name: '성장 촉진제 24h',
+    price: 95,
+    category: 'upgrade',
+    passive: false,
+    buffKey: 'feedBoost',
+    description: '24시간 성장하기 EXP +20%',
+  },
 ]
 
 export const QUEST_ORDER: readonly QuestKey[] = ['commit1', 'pr1', 'review1'] as const
 
-export const QUESTS: Record<QuestKey, { title: string; rewardCoins: number }> = {
-  commit1: { title: 'commit 1회 하기', rewardCoins: 10 },
-  pr1: { title: 'PR 1회 보내기', rewardCoins: 10 },
-  review1: { title: 'Issue 1회 등록하기', rewardCoins: 10 },
+export const BASE_QUEST_REWARD_UNIT = 10
+
+export const DEFAULT_QUESTS: Record<QuestKey, QuestDefinition> = {
+  commit1: {
+    key: 'commit1',
+    metric: 'commit',
+    target: 1,
+    rewardCoins: 10,
+    title: 'Commit 1회 하기',
+  },
+  pr1: {
+    key: 'pr1',
+    metric: 'pr',
+    target: 1,
+    rewardCoins: 10,
+    title: 'PR 1회 보내기',
+  },
+  review1: {
+    key: 'review1',
+    metric: 'review',
+    target: 1,
+    rewardCoins: 10,
+    title: 'Issue 1회 등록하기',
+  },
 }
+
+export const QUEST_TEMPLATE_POOL: ReadonlyArray<{
+  metric: QuestMetric
+  target: number
+  rewardCoins: number
+  title: string
+}> = [
+  { metric: 'commit', target: 1, rewardCoins: 10, title: 'Commit 1회 하기' },
+  { metric: 'commit', target: 3, rewardCoins: 20, title: 'Commit 3회 달성' },
+  { metric: 'pr', target: 1, rewardCoins: 12, title: 'PR 1회 보내기' },
+  { metric: 'pr', target: 2, rewardCoins: 22, title: 'PR 2회 달성' },
+  { metric: 'review', target: 1, rewardCoins: 12, title: 'Issue 1회 등록하기' },
+  { metric: 'review', target: 2, rewardCoins: 22, title: 'Issue 2회 달성' },
+  { metric: 'game', target: 1, rewardCoins: 14, title: '돌 피하기 1회 플레이' },
+  { metric: 'feed', target: 1, rewardCoins: 14, title: '성장하기 1회 성공' },
+]
 
 export const EVENT_REWARDS: Record<SimEvent, { coins: number; exp: number; label: string }> = {
   COMMIT: { coins: 2, exp: 8, label: 'Commit' },

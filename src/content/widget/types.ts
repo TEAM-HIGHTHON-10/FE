@@ -1,12 +1,28 @@
 export type Mood = 'GOOD' | 'NORMAL' | 'BAD'
 export type SimEvent = 'COMMIT' | 'PULL_REQUEST' | 'REVIEW'
 export type QuestKey = 'commit1' | 'pr1' | 'review1'
-export type AccessoryKey = 'straw_hat'
+export type AccessoryKey = 'straw_hat' | 'sprint_shoes' | 'lucky_clover' | 'stone_guard'
+export type BuffKey = 'questBoost' | 'gameDiscount' | 'feedBoost'
+export type BuffItemKey = 'quest_boost_24h' | 'game_discount_24h' | 'feed_boost_24h'
+export type ShopItemKey = AccessoryKey | BuffItemKey
+export type QuestMetric = 'commit' | 'pr' | 'review' | 'game' | 'feed'
+
+export type ActiveBuffs = Record<BuffKey, number>
+
+export type QuestDefinition = {
+  key: QuestKey
+  metric: QuestMetric
+  target: number
+  rewardCoins: number
+  title: string
+}
 
 export type DailyCounts = {
   commit: number
   pr: number
   review: number
+  game: number
+  feed: number
 }
 
 export type QuestState = {
@@ -28,6 +44,8 @@ export type PetState = {
   lastCommitAt: number
   dayKey: string
   counts: DailyCounts
+  activeBuffs: ActiveBuffs
+  questDefs: QuestDefinition[]
   quests: QuestState[]
   logs: LogItem[]
   ownedItems: AccessoryKey[]

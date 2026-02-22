@@ -1,5 +1,5 @@
 import { ICON_DATA_URLS } from '../../assets/iconDataUrls'
-import { QUESTS } from './constants'
+import { DEFAULT_QUESTS } from './constants'
 
 export const createWidgetCss = (topOffset: number) => `
     :host {
@@ -68,6 +68,10 @@ export const createWidgetCss = (topOffset: number) => `
 
     .frame[data-highton-auth='0'] .authGate {
       display: flex;
+    }
+
+    .frame[data-highton-auth='0'] .miniDock {
+      display: none !important;
     }
 
     .frame[data-highton-game-active='1'] {
@@ -646,10 +650,43 @@ export const createWidgetCss = (topOffset: number) => `
       background: rgba(34, 34, 34, 0.78);
       backdrop-filter: blur(14px);
       display: none;
+      flex-direction: column;
+      overflow: hidden;
+      z-index: 5;
+    }
+
+    .shopTabs {
+      display: inline-flex;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .shopTab {
+      border: 1px solid rgba(255, 191, 87, 0.68);
+      border-radius: 999px;
+      background: rgba(42, 28, 14, 0.72);
+      color: rgba(255, 236, 202, 0.9);
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1;
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+
+    .shopTab[data-active='1'] {
+      background: linear-gradient(135deg, rgba(255, 173, 53, 0.86) 0%, rgba(235, 128, 20, 0.86) 100%);
+      border-color: rgba(255, 222, 150, 0.95);
+      color: #2e1b0f;
+    }
+
+    .shopList {
+      width: 100%;
+      display: flex;
       flex-direction: row;
       gap: 10px;
       overflow-x: auto;
-      z-index: 5;
+      overflow-y: hidden;
+      padding-bottom: 2px;
     }
 
 
@@ -700,7 +737,39 @@ export const createWidgetCss = (topOffset: number) => `
     .gameMenu {
       width: 100%;
       display: flex;
+      flex-direction: column;
       align-items: stretch;
+      gap: 8px;
+    }
+
+    .gameDifficulty {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+    }
+
+    .gameDifficultyBtn {
+      height: 28px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 218, 158, 0.46);
+      background: rgba(77, 34, 13, 0.56);
+      color: rgba(255, 241, 220, 0.92);
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0 6px;
+    }
+
+    .gameDifficultyBtn[data-active='1'] {
+      border-color: rgba(255, 232, 174, 0.95);
+      background: linear-gradient(135deg, rgba(255, 173, 53, 0.86) 0%, rgba(235, 128, 20, 0.86) 100%);
+      color: #2e1b0f;
+    }
+
+    .gameDifficultyBtn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
 
     .gameEnterBtn {
@@ -749,6 +818,13 @@ export const createWidgetCss = (topOffset: number) => `
       font-weight: 700;
       letter-spacing: 0;
       color: #fff;
+      line-height: 1.2;
+      text-align: center;
+    }
+
+    .gameMenuMeta {
+      font-size: 11px;
+      color: rgba(255, 245, 226, 0.9);
       line-height: 1.2;
       text-align: center;
     }
@@ -993,9 +1069,18 @@ export const createWidgetCss = (topOffset: number) => `
       filter: brightness(1.05);
     }
 
+    .shopCard[data-visible='0'] {
+      display: none;
+    }
+
     .shopCard[data-equipped='1'] {
       border-color: #ffe8b7;
       background: rgba(255, 157, 0, 0.3);
+    }
+
+    .shopCard[data-owned='1']:not([data-equipped='1']) {
+      border-color: rgba(255, 220, 162, 0.8);
+      background: rgba(255, 157, 0, 0.22);
     }
 
     .shopIcon {
@@ -1019,6 +1104,14 @@ export const createWidgetCss = (topOffset: number) => `
       font-weight: 700;
       line-height: 1.2;
       text-align: center;
+    }
+
+    .shopDesc {
+      font-size: 10px;
+      line-height: 1.25;
+      color: rgba(255, 255, 255, 0.82);
+      text-align: center;
+      min-height: 22px;
     }
 
     .shopAction {
@@ -1319,10 +1412,16 @@ export const createWidgetHtml = () => `
         <button class="gameClose" type="button" data-highton="gameClose" aria-label="close game panel">×</button>
         <div class="gameCard" aria-label="stone dodge game">
           <div class="gameMenu" data-highton="gameMenu">
+            <div class="gameDifficulty" data-highton="gameDifficulty">
+              <button class="gameDifficultyBtn" type="button" data-highton="gameDifficultyBtn" data-level="easy" data-active="0" aria-pressed="false">쉬움</button>
+              <button class="gameDifficultyBtn" type="button" data-highton="gameDifficultyBtn" data-level="normal" data-active="1" aria-pressed="true">보통</button>
+              <button class="gameDifficultyBtn" type="button" data-highton="gameDifficultyBtn" data-level="hard" data-active="0" aria-pressed="false">어려움</button>
+            </div>
             <button class="gameEnterBtn" type="button" data-highton="gameEnter" aria-label="enter stone game">
               <img class="gameMenuStone" src="${ICON_DATA_URLS.stone}" alt="stone" />
-              <div class="gameMenuReward"><img class="eggGlyphIcon" src="${ICON_DATA_URLS.egg}" alt="" aria-hidden="true" />10</div>
+              <div class="gameMenuReward"><img class="eggGlyphIcon" src="${ICON_DATA_URLS.egg}" alt="" aria-hidden="true" /><span data-highton="gameCost">10</span></div>
               <div class="gameMenuTitle">돌 피하기</div>
+              <div class="gameMenuMeta" data-highton="gameMeta">보통 · 보상 배율 x1.0</div>
             </button>
           </div>
           <div class="gamePlayView" data-highton="gamePlayView">
@@ -1330,7 +1429,7 @@ export const createWidgetHtml = () => `
               <div class="gameScore"><span data-highton="gameScore">0</span>점</div>
               <div class="gameReward">
                 <img class="goldGlyphIcon" src="${ICON_DATA_URLS.goldEgg}" alt="" aria-hidden="true" />
-                점수=보상
+                점수 x <span data-highton="gameRewardMultiplier">1.0</span>=보상
                 <img class="gameStone" src="${ICON_DATA_URLS.stone}" alt="" aria-hidden="true" />
               </div>
             </div>
@@ -1342,22 +1441,59 @@ export const createWidgetHtml = () => `
               <button class="gameMoveBtn" type="button" data-highton="gameMoveLeft" aria-label="move left">◀ 왼쪽</button>
               <button class="gameMoveBtn" type="button" data-highton="gameMoveRight" aria-label="move right">오른쪽 ▶</button>
             </div>
-            <div class="gameHint">키보드 ← → 로도 이동 가능, 돌 1개 회피 시 +10점</div>
+            <div class="gameHint">키보드 ← → 로 이동 가능, 어려움에선 거대 돌이 가끔 등장합니다</div>
           </div>
         </div>
       </section>
 
       <section class="shopPanel" data-highton="shopPanel" aria-label="shop">
         <button class="shopClose" type="button" data-highton="shopClose" aria-label="close shop">×</button>
-        <button class="shopCard" type="button" data-highton="shop-item" data-item="straw_hat">
+        <div class="shopTabs" data-highton="shopTabs">
+          <button class="shopTab" type="button" data-highton="shop-tab" data-mode="cosmetic" data-active="1" aria-pressed="true">꾸미기</button>
+          <button class="shopTab" type="button" data-highton="shop-tab" data-mode="upgrade" data-active="0" aria-pressed="false">업그레이드</button>
+        </div>
+        <div class="shopList">
+        <button class="shopCard" type="button" data-highton="shop-item" data-item="straw_hat" data-category="cosmetic" data-visible="1">
           <img class="shopIcon" src="${ICON_DATA_URLS.hat}" alt="" aria-hidden="true" />
           <div class="shopPrice">
             <img class="goldGlyphIcon" src="${ICON_DATA_URLS.goldEgg}" alt="" aria-hidden="true" />
             <span data-highton="shop-price">100</span>
           </div>
           <div class="shopName">밀짚모자</div>
+          <div class="shopDesc" data-highton="shop-desc">대표 코스메틱 아이템</div>
           <div class="shopAction" data-highton="shop-action">구매하기</div>
         </button>
+        <button class="shopCard" type="button" data-highton="shop-item" data-item="sprint_shoes" data-category="upgrade" data-visible="0">
+          <img class="shopIcon" src="${ICON_DATA_URLS.game}" alt="" aria-hidden="true" />
+          <div class="shopPrice">
+            <img class="goldGlyphIcon" src="${ICON_DATA_URLS.goldEgg}" alt="" aria-hidden="true" />
+            <span data-highton="shop-price">140</span>
+          </div>
+          <div class="shopName">스프린트 슈즈</div>
+          <div class="shopDesc" data-highton="shop-desc">돌 피하기 입장 비용 -3 달걀</div>
+          <div class="shopAction" data-highton="shop-action">구매하기</div>
+        </button>
+        <button class="shopCard" type="button" data-highton="shop-item" data-item="lucky_clover" data-category="upgrade" data-visible="0">
+          <img class="shopIcon" src="${ICON_DATA_URLS.goldEgg}" alt="" aria-hidden="true" />
+          <div class="shopPrice">
+            <img class="goldGlyphIcon" src="${ICON_DATA_URLS.goldEgg}" alt="" aria-hidden="true" />
+            <span data-highton="shop-price">160</span>
+          </div>
+          <div class="shopName">럭키 클로버</div>
+          <div class="shopDesc" data-highton="shop-desc">퀘스트 보상 +20%</div>
+          <div class="shopAction" data-highton="shop-action">구매하기</div>
+        </button>
+        <button class="shopCard" type="button" data-highton="shop-item" data-item="stone_guard" data-category="upgrade" data-visible="0">
+          <img class="shopIcon" src="${ICON_DATA_URLS.stone}" alt="" aria-hidden="true" />
+          <div class="shopPrice">
+            <img class="goldGlyphIcon" src="${ICON_DATA_URLS.goldEgg}" alt="" aria-hidden="true" />
+            <span data-highton="shop-price">180</span>
+          </div>
+          <div class="shopName">스톤 가드</div>
+          <div class="shopDesc" data-highton="shop-desc">돌 피하기 충돌 판정 12% 감소</div>
+          <div class="shopAction" data-highton="shop-action">구매하기</div>
+        </button>
+        </div>
       </section>
       <div class="toast" data-highton="toast"></div>
     </section>
@@ -1380,36 +1516,36 @@ export const createWidgetHtml = () => `
     <section class="quests" aria-label="quests">
       <div class="questList">
         <div class="questRow" data-highton="q_commit1">
-          <div class="questTitle" data-highton="q_title">${QUESTS.commit1.title}</div>
+          <div class="questTitle" data-highton="q_title">${DEFAULT_QUESTS.commit1.title}</div>
           <div class="questRight">
             <div class="questReward">
               <span>보상:</span>
               <img class="eggGlyphIcon" src="${ICON_DATA_URLS.egg}" alt="" aria-hidden="true" />
-              <span data-highton="q_reward">${QUESTS.commit1.rewardCoins}</span>
+              <span data-highton="q_reward">${DEFAULT_QUESTS.commit1.rewardCoins}</span>
             </div>
             <button class="questBtn" type="button" data-highton="q_claim" data-quest="commit1">받기</button>
           </div>
         </div>
 
         <div class="questRow" data-highton="q_pr1">
-          <div class="questTitle" data-highton="q_title">${QUESTS.pr1.title}</div>
+          <div class="questTitle" data-highton="q_title">${DEFAULT_QUESTS.pr1.title}</div>
           <div class="questRight">
             <div class="questReward">
               <span>보상:</span>
               <img class="eggGlyphIcon" src="${ICON_DATA_URLS.egg}" alt="" aria-hidden="true" />
-              <span data-highton="q_reward">${QUESTS.pr1.rewardCoins}</span>
+              <span data-highton="q_reward">${DEFAULT_QUESTS.pr1.rewardCoins}</span>
             </div>
             <button class="questBtn" type="button" data-highton="q_claim" data-quest="pr1">받기</button>
           </div>
         </div>
 
         <div class="questRow" data-highton="q_review1">
-          <div class="questTitle" data-highton="q_title">${QUESTS.review1.title}</div>
+          <div class="questTitle" data-highton="q_title">${DEFAULT_QUESTS.review1.title}</div>
           <div class="questRight">
             <div class="questReward">
               <span>보상:</span>
               <img class="eggGlyphIcon" src="${ICON_DATA_URLS.egg}" alt="" aria-hidden="true" />
-              <span data-highton="q_reward">${QUESTS.review1.rewardCoins}</span>
+              <span data-highton="q_reward">${DEFAULT_QUESTS.review1.rewardCoins}</span>
             </div>
             <button class="questBtn" type="button" data-highton="q_claim" data-quest="review1">받기</button>
           </div>

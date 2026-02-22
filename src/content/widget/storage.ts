@@ -1,6 +1,14 @@
 import { QUEST_ORDER, STORAGE_KEY, WEEKLY_STATS_KEY } from './constants'
-import { clampExp, createDefaultState, ensureToday, getDayKey } from './logic'
-import type { AccessoryKey, DailyCounts, LogItem, Mood, PetState, QuestState } from './types'
+import { buildDailyQuestDefs, clampExp, createDefaultState, ensureToday, getDayKey } from './logic'
+import type {
+  AccessoryKey,
+  DailyCounts,
+  LogItem,
+  Mood,
+  PetState,
+  QuestDefinition,
+  QuestState,
+} from './types'
 
 type WeeklySnapshot = {
   commit: number
@@ -89,8 +97,47 @@ export const loadState = async (): Promise<PetState> => {
           commit: (countsRaw as DailyCounts).commit,
           pr: (countsRaw as DailyCounts).pr,
           review: (countsRaw as DailyCounts).review,
+          game:
+            typeof (countsRaw as { game?: unknown }).game === 'number'
+              ? (countsRaw as DailyCounts).game
+              : 0,
+          feed:
+            typeof (countsRaw as { feed?: unknown }).feed === 'number'
+              ? (countsRaw as DailyCounts).feed
+              : 0,
         }
-      : { commit: 0, pr: 0, review: 0 }
+      : { commit: 0, pr: 0, review: 0, game: 0, feed: 0 }
+
+  const questDefsRaw = (raw as { questDefs?: unknown }).questDefs
+  const questDefs: QuestDefinition[] = Array.isArray(questDefsRaw)
+    ? questDefsRaw
+        .filter(
+          (item): item is QuestDefinition =>
+            !!item &&
+            typeof item === 'object' &&
+            ((item as { key?: unknown }).key === 'commit1' ||
+              (item as { key?: unknown }).key === 'pr1' ||
+              (item as { key?: unknown }).key === 'review1') &&
+            ((item as { metric?: unknown }).metric === 'commit' ||
+              (item as { metric?: unknown }).metric === 'pr' ||
+              (item as { metric?: unknown }).metric === 'review' ||
+              (item as { metric?: unknown }).metric === 'game' ||
+              (item as { metric?: unknown }).metric === 'feed') &&
+            typeof (item as { target?: unknown }).target === 'number' &&
+            typeof (item as { rewardCoins?: unknown }).rewardCoins === 'number' &&
+            typeof (item as { title?: unknown }).title === 'string',
+        )
+        .slice(0, 3)
+    : []
+
+  const orderedQuestDefs = QUEST_ORDER.map((key) =>
+    questDefs.find((item) => item.key === key),
+  ).filter((item): item is QuestDefinition => !!item)
+
+  const questDefsByDay =
+    orderedQuestDefs.length === 3
+      ? orderedQuestDefs
+      : buildDailyQuestDefs(typeof dayKeyRaw === 'string' ? dayKeyRaw : getDayKey())
 
   const questsRaw = (raw as { quests?: unknown }).quests
   const questsArr: QuestState[] = Array.isArray(questsRaw)
@@ -127,7 +174,10 @@ export const loadState = async (): Promise<PetState> => {
 
   const ownedItemsRaw = (raw as { ownedItems?: unknown }).ownedItems
   const ownedItems: AccessoryKey[] = Array.isArray(ownedItemsRaw)
-    ? ownedItemsRaw.filter((x): x is AccessoryKey => x === 'straw_hat')
+    ? ownedItemsRaw.filter(
+        (x): x is AccessoryKey =>
+          x === 'straw_hat' || x === 'sprint_shoes' || x === 'lucky_clover' || x === 'stone_guard',
+      )
     : []
 
   const equippedItemRaw = (raw as { equippedItem?: unknown }).equippedItem
@@ -143,6 +193,7 @@ export const loadState = async (): Promise<PetState> => {
     lastCommitAt: typeof lastCommitAt === 'number' ? lastCommitAt : 0,
     dayKey: typeof dayKeyRaw === 'string' ? dayKeyRaw : getDayKey(),
     counts,
+    questDefs: questDefsByDay,
     quests,
     logs,
     ownedItems,

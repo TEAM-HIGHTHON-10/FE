@@ -1,14 +1,16 @@
 import { ICON_DATA_URLS } from '../../assets/iconDataUrls'
 import {
+  DEFAULT_QUESTS,
   EXP_PER_LEVEL,
   LEVELS_PER_TIER,
   MAX_LEVEL_INDEX,
   MAX_TOTAL_EXP,
   PET_TALKS,
+  QUEST_TEMPLATE_POOL,
   QUEST_ORDER,
   TIERS,
 } from './constants'
-import type { Mood, PetState, QuestKey, TierKey, WidgetPosition } from './types'
+import type { Mood, PetState, QuestDefinition, QuestKey, TierKey, WidgetPosition } from './types'
 
 export const getDayKey = (d = new Date()) => {
   const y = d.getFullYear()
@@ -27,7 +29,13 @@ export const createDefaultState = (): PetState => {
     mood: 'NORMAL',
     lastCommitAt: 0,
     dayKey,
-    counts: { commit: 0, pr: 0, review: 0 },
+    counts: { commit: 0, pr: 0, review: 0, game: 0, feed: 0 },
+    activeBuffs: {
+      questBoost: 0,
+      gameDiscount: 0,
+      feedBoost: 0,
+    },
+    questDefs: buildDailyQuestDefs(dayKey),
     quests: QUEST_ORDER.map((key) => ({ key, claimed: false })),
     logs: [],
     ownedItems: [],
@@ -74,15 +82,53 @@ export const ensureToday = (state: PetState): PetState => {
   return {
     ...state,
     dayKey: today,
-    counts: { commit: 0, pr: 0, review: 0 },
+    counts: { commit: 0, pr: 0, review: 0, game: 0, feed: 0 },
+    questDefs: buildDailyQuestDefs(today),
     quests: state.quests.map((q) => ({ ...q, claimed: false })),
   }
 }
 
+const hashDayKey = (dayKey: string): number => {
+  let hash = 2166136261
+  for (let i = 0; i < dayKey.length; i += 1) {
+    hash ^= dayKey.charCodeAt(i)
+    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24)
+  }
+  return hash >>> 0
+}
+
+const nextSeed = (seed: number): number => {
+  return (seed * 1664525 + 1013904223) >>> 0
+}
+
+export const buildDailyQuestDefs = (dayKey: string): QuestDefinition[] => {
+  const available = [...QUEST_TEMPLATE_POOL]
+  let seed = hashDayKey(dayKey)
+
+  const defs: QuestDefinition[] = QUEST_ORDER.map((key, idx) => {
+    if (available.length === 0) return DEFAULT_QUESTS[key]
+    seed = nextSeed(seed + idx)
+    const pickIndex = seed % available.length
+    const picked = available.splice(pickIndex, 1)[0]
+    return {
+      key,
+      metric: picked.metric,
+      target: picked.target,
+      rewardCoins: picked.rewardCoins,
+      title: picked.title,
+    }
+  })
+
+  return defs
+}
+
+export const getQuestDefinition = (state: PetState, key: QuestKey): QuestDefinition => {
+  return state.questDefs.find((item) => item.key === key) ?? DEFAULT_QUESTS[key]
+}
+
 export const isQuestCompleted = (state: PetState, key: QuestKey) => {
-  if (key === 'commit1') return state.counts.commit >= 1
-  if (key === 'pr1') return state.counts.pr >= 1
-  return state.counts.review >= 1
+  const quest = getQuestDefinition(state, key)
+  return state.counts[quest.metric] >= quest.target
 }
 
 export const isQuestClaimed = (state: PetState, key: QuestKey) => {
