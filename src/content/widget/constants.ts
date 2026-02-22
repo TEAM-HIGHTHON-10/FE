@@ -53,7 +53,6 @@ export const HAT_ANCHORS: Record<TierKey, HatAnchor> = {
     miniHatWidth: 34,
     miniBadgeX: 22,
     miniBadgeY: -4,
-
   },
   Junior: {
     x: -5,
@@ -68,7 +67,6 @@ export const HAT_ANCHORS: Record<TierKey, HatAnchor> = {
     miniHatWidth: 38,
     miniBadgeX: 24,
     miniBadgeY: -6,
-
   },
   Mid: {
     x: -10,
@@ -83,7 +81,6 @@ export const HAT_ANCHORS: Record<TierKey, HatAnchor> = {
     miniHatWidth: 60,
     miniBadgeX: 28,
     miniBadgeY: -4,
-
   },
   Senior: {
     x: -25,
@@ -98,7 +95,6 @@ export const HAT_ANCHORS: Record<TierKey, HatAnchor> = {
     miniHatWidth: 70,
     miniBadgeX: 32,
     miniBadgeY: -2,
-
   },
 }
 
