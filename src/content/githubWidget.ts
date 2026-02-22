@@ -152,6 +152,72 @@ let questSocket: WebSocket | null = null
 let questSocketToken: string | null = null
 let questSocketRetryId: number | null = null
 
+const toFiniteNumber = (value: unknown): number | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return null
+}
+
+const normalizeQuestType = (value: unknown): QuestCompletedEvent['questType'] | null => {
+  if (typeof value !== 'string' || value.trim().length === 0) return null
+  const raw = value.trim().toUpperCase()
+
+  if (raw === 'COMMIT') return 'COMMIT'
+  if (raw === 'PR' || raw === 'PULL_REQUEST' || raw === 'PULLREQUEST') return 'PR'
+  if (raw === 'ISSUE') return 'ISSUE'
+  if (raw === 'REVIEW' || raw === 'PULL_REQUEST_REVIEW') return 'REVIEW'
+  if (raw === 'FOLLOWER') return 'FOLLOWER'
+  if (raw === 'GAME') return 'GAME'
+  return null
+}
+
+const normalizeQuestCompletedEvent = (payload: unknown): QuestCompletedEvent | null => {
+  if (!payload || typeof payload !== 'object') return null
+
+  const container = payload as {
+    type?: unknown
+    event?: unknown
+    data?: unknown
+    payload?: unknown
+  }
+
+  const inner =
+    container.data && typeof container.data === 'object'
+      ? container.data
+      : container.payload && typeof container.payload === 'object'
+        ? container.payload
+        : payload
+
+  const type = container.type ?? container.event ?? (inner as { type?: unknown }).type
+  if (type !== 'QUEST_COMPLETED') return null
+
+  const questType = normalizeQuestType(
+    (inner as { questType?: unknown; quest_type?: unknown }).questType ??
+      (inner as { quest_type?: unknown }).quest_type,
+  )
+  if (!questType) return null
+
+  const eggsEarned = toFiniteNumber(
+    (inner as { eggsEarned?: unknown; eggs_earned?: unknown }).eggsEarned ??
+      (inner as { eggs_earned?: unknown }).eggs_earned,
+  )
+  const totalEggs = toFiniteNumber(
+    (inner as { totalEggs?: unknown; total_eggs?: unknown }).totalEggs ??
+      (inner as { total_eggs?: unknown }).total_eggs,
+  )
+  if (eggsEarned === null || totalEggs === null) return null
+
+  return {
+    type: 'QUEST_COMPLETED',
+    questType,
+    eggsEarned,
+    totalEggs,
+  }
+}
+
 const clearQuestSocketRetry = () => {
   if (questSocketRetryId !== null) {
     window.clearTimeout(questSocketRetryId)
@@ -195,12 +261,12 @@ const connectQuestSocket = async () => {
   ws.onmessage = (event) => {
     let data: QuestCompletedEvent | null = null
     try {
-      data = JSON.parse(event.data) as QuestCompletedEvent
+      data = normalizeQuestCompletedEvent(JSON.parse(event.data))
     } catch {
       return
     }
 
-    if (!data || data.type !== 'QUEST_COMPLETED') return
+    if (!data) return
 
     void (async () => {
       const prev = await loadState()
