@@ -189,6 +189,9 @@ const connectQuestSocket = async () => {
       const prev = await loadState()
       const current = ensureToday(prev)
       const serverTotalEggs = Math.max(0, Math.floor(data.totalEggs))
+      const earned = Math.max(0, Math.floor(data.eggsEarned))
+      const unitReward = QUESTS.commit1.rewardCoins
+      const claimUnits = Math.max(1, Math.floor(earned / unitReward))
 
       const nextCounts = {
         ...current.counts,
@@ -197,16 +200,16 @@ const connectQuestSocket = async () => {
       let lockDelta = 0
 
       if (data.questType === 'COMMIT') {
-        nextCounts.commit += 1
-        lockDelta = Math.max(lockDelta, data.eggsEarned)
+        nextCounts.commit += claimUnits
+        lockDelta += earned
       }
       if (data.questType === 'PR') {
-        nextCounts.pr += 1
-        lockDelta = Math.max(lockDelta, data.eggsEarned)
+        nextCounts.pr += claimUnits
+        lockDelta += earned
       }
       if (data.questType === 'ISSUE' || data.questType === 'REVIEW') {
-        nextCounts.review += 1
-        lockDelta = Math.max(lockDelta, data.eggsEarned)
+        nextCounts.review += claimUnits
+        lockDelta += earned
       }
 
       const nextLockedEggs = Math.min(serverTotalEggs, Math.max(0, current.lockedEggs + lockDelta))
@@ -226,7 +229,7 @@ const connectQuestSocket = async () => {
       if (data.questType === 'COMMIT') toast('커밋 퀘스트 완료! 받기를 눌러 코인을 받으세요.')
       else if (data.questType === 'PR') toast('PR 퀘스트 완료! 받기를 눌러 코인을 받으세요.')
       else if (data.questType === 'ISSUE' || data.questType === 'REVIEW') {
-        toast('리뷰 퀘스트 완료! 받기를 눌러 코인을 받으세요.')
+        toast('이슈 퀘스트 완료! 받기를 눌러 코인을 받으세요.')
       } else if (data.questType === 'GAME') {
         toast(`게임 승리! 황금 달걀 +${data.eggsEarned}`)
       }

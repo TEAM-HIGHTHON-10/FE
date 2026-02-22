@@ -12,6 +12,8 @@ export const loadState = async (): Promise<PetState> => {
   }
 
   const coins = (raw as { coins?: unknown }).coins
+  const goldenEggsRaw = (raw as { goldenEggs?: unknown }).goldenEggs
+  const lockedEggsRaw = (raw as { lockedEggs?: unknown }).lockedEggs
   const exp = (raw as { exp?: unknown }).exp
   if (typeof coins !== 'number' || typeof exp !== 'number') {
     const s = createDefaultState()
@@ -84,6 +86,8 @@ export const loadState = async (): Promise<PetState> => {
 
   const state: PetState = {
     coins,
+    goldenEggs: typeof goldenEggsRaw === 'number' ? Math.max(0, Math.floor(goldenEggsRaw)) : 0,
+    lockedEggs: typeof lockedEggsRaw === 'number' ? Math.max(0, Math.floor(lockedEggsRaw)) : 0,
     exp: clampExp(exp),
     mood,
     lastCommitAt: typeof lastCommitAt === 'number' ? lastCommitAt : 0,

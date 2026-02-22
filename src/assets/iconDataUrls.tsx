@@ -5,6 +5,9 @@ import { Cart } from './Cart'
 import { Game } from './Game'
 import { Junior } from './Junior'
 import { JuniorHat } from './JuniorHat'
+import { JuniorGame } from './JuniorGame'
+import { JuniorGameDie } from './JuniorGameDie'
+import { JuniorGameHat } from './JuniorGameHat'
 import { Mid } from './Mid'
 import { MidHat } from './MidHat'
 import { Newbie } from './Newbie'
@@ -63,4 +66,5 @@ export const ICON_DATA_URLS = {
   juniorGameHat: toDataUrl(JuniorGameHat),
   midGameHat: toDataUrl(MidGameHat),
   seniorGameHat: toDataUrl(SeniorGameHat),
+
 } as const
