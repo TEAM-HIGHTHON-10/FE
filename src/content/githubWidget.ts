@@ -27,6 +27,7 @@ import {
 import {
   AUTH_STORAGE_KEY,
   BACKEND_WS_URL,
+  type AuthStatusData,
   type BackendLevel,
   type FeedResponse,
   type QuestCompletedEvent,
@@ -74,7 +75,23 @@ const runtimeRequest = async <T>(message: unknown): Promise<RuntimeResponse<T>> 
   }
 }
 
+const applyAuthUi = (authenticated: boolean) => {
+  const mounted = getMounted()
+  if (!mounted) return
+
+  mounted.panel.setAttribute('data-highton-auth', authenticated ? '1' : '0')
+  if (!authenticated) {
+    mounted.panel.removeAttribute('data-highton-game-active')
+    const gamePanel = mounted.shadow.querySelector<HTMLElement>('[data-highton="gamePanel"]')
+    const shopPanel = mounted.shadow.querySelector<HTMLElement>('[data-highton="shopPanel"]')
+    gamePanel?.setAttribute('data-open', '0')
+    gamePanel?.setAttribute('data-mode', 'menu')
+    shopPanel?.setAttribute('data-open', '0')
+  }
+}
+
 const handleAuthExpired = async (message: string) => {
+  applyAuthUi(false)
   toast(message)
   disconnectQuestSocket()
   await runtimeRequest<{ success: boolean }>({ type: 'HIGHTON_AUTH_LOGOUT' })
@@ -444,6 +461,7 @@ const mountWidget = () => {
   const panel = document.createElement('section')
   panel.className = 'frame'
   panel.setAttribute('data-highton', 'panel')
+  panel.setAttribute('data-highton-auth', '1')
   panel.innerHTML = createWidgetHtml()
 
   shadow.append(style, panel)
@@ -457,10 +475,18 @@ const wireUi = async () => {
   const mounted = getMounted()
   if (!mounted) return
 
-  const state = await loadState()
-  renderState(state)
-  void syncStatusFromBackend(false)
-  void connectQuestSocket()
+  const auth = await runtimeRequest<AuthStatusData>({ type: 'HIGHTON_AUTH_STATUS' })
+  const authenticated = auth.ok && auth.data.authenticated
+  applyAuthUi(authenticated)
+
+  if (authenticated) {
+    const state = await loadState()
+    renderState(state)
+    void syncStatusFromBackend(false)
+    void connectQuestSocket()
+  } else {
+    disconnectQuestSocket()
+  }
 
   let applyShopOpen: (open: boolean) => void = () => {
     void 0
@@ -579,7 +605,9 @@ const wireUi = async () => {
   const gameCloseButton = mounted.shadow.querySelector<HTMLButtonElement>(
     '[data-highton="gameClose"]',
   )
-  const gameStartButton = mounted.shadow.querySelector<HTMLButtonElement>('[data-highton="gameStart"]')
+  const gameEnterButton = mounted.shadow.querySelector<HTMLButtonElement>(
+    '[data-highton="gameEnter"]',
+  )
   const gameMoveLeftButton = mounted.shadow.querySelector<HTMLButtonElement>(
     '[data-highton="gameMoveLeft"]',
   )
@@ -602,6 +630,16 @@ const wireUi = async () => {
   let shopOpen = false
   let gameOpen = false
 
+  const setGameMode = (mode: 'menu' | 'play') => {
+    if (gamePanel) {
+      gamePanel.setAttribute('data-mode', mode)
+    }
+  }
+
+  const setGameActive = (active: boolean) => {
+    mounted.panel.setAttribute('data-highton-game-active', active ? '1' : '0')
+  }
+
   applyGameOpen = (open: boolean) => {
     gameOpen = open
     if (gamePanel) {
@@ -609,6 +647,10 @@ const wireUi = async () => {
     }
     if (gameButton) {
       gameButton.setAttribute('aria-pressed', open ? 'true' : 'false')
+    }
+    if (!open) {
+      setGameMode('menu')
+      setGameActive(false)
     }
   }
   applyGameOpen(false)
@@ -735,7 +777,7 @@ const wireUi = async () => {
       const spendableEggs = Math.max(0, statusResponse.data.eggCount - lockedEggs)
       if (spendableEggs <= 0) {
         await applyBackendStatus(statusResponse.data, 'Sync: all eggs are locked by quests')
-        toast('먼저 퀘스트에서 보상을 받아야 밥주기를 할 수 있어요.')
+        toast('먼저 퀘스트에서 보상을 받아야 성장을 할 수 있어요.')
         return
       }
 
@@ -754,9 +796,9 @@ const wireUi = async () => {
         `Feed: consumed=${response.data.eggsConsumed} leveledUp=${response.data.leveledUp}`,
       )
       if (response.data.leveledUp) {
-        toast(`밥주기 완료! 레벨업 🎉 (-${response.data.eggsConsumed} eggs)`)
+        toast(`성장 완료! 레벨업 🎉 (-${response.data.eggsConsumed} eggs)`)
       } else {
-        toast(`밥주기 완료! -${response.data.eggsConsumed} eggs`)
+        toast(`성장 완료! -${response.data.eggsConsumed} eggs`)
       }
     })()
   })
@@ -764,6 +806,8 @@ const wireUi = async () => {
   gameButton?.addEventListener('click', () => {
     if (!gameOpen) {
       applyShopOpen(false)
+      setGameMode('menu')
+      setGameActive(false)
     }
     applyGameOpen(!gameOpen)
   })
@@ -772,6 +816,7 @@ const wireUi = async () => {
     if (gameRunning) {
       endGame(false)
     }
+    setGameActive(false)
     applyGameOpen(false)
   })
 
@@ -829,13 +874,13 @@ const wireUi = async () => {
     const arenaW = gameArena.clientWidth
     if (arenaW <= 10) return
 
-    const width = 26
-    const height = 20
+    const width = 44
+    const height = 34
     const minX = 4
     const maxX = Math.max(minX, arenaW - width - 4)
     const x = Math.floor(minX + Math.random() * (maxX - minX + 1))
     const y = -height - 2
-    const speed = 120 + Math.random() * 95
+    const speed = 155 + Math.random() * 115
 
     const element = document.createElement('img')
     element.className = 'gameFallingStone'
@@ -873,10 +918,7 @@ const wireUi = async () => {
   const endGame = (rewardPlayer: boolean) => {
     gameRunning = false
     clearGameTimers()
-    if (gameStartButton) {
-      gameStartButton.textContent = '시작'
-      gameStartButton.disabled = false
-    }
+    if (gameEnterButton) gameEnterButton.disabled = false
     if (gameMoveLeftButton) gameMoveLeftButton.disabled = false
     if (gameMoveRightButton) gameMoveRightButton.disabled = false
 
@@ -884,6 +926,8 @@ const wireUi = async () => {
     void (async () => {
       if (!rewardPlayer) {
         await setGamePlayerSprite(false)
+        setGameMode('menu')
+        setGameActive(false)
         toast('게임 종료')
         return
       }
@@ -901,6 +945,8 @@ const wireUi = async () => {
       await saveState(withLog)
       renderState(withLog)
       await setGamePlayerSprite(true)
+      setGameMode('menu')
+      setGameActive(false)
       toast(`게임 오버! 점수 ${reward}, 황금 달걀 +${reward}`)
     })()
   }
@@ -912,11 +958,13 @@ const wireUi = async () => {
     lastFrameTime = now
 
     const arenaH = gameArena.clientHeight
+    const playerW = gamePlayer.clientWidth || 82
+    const playerH = gamePlayer.clientHeight || 82
     const playerRect = {
-      width: gamePlayer.clientWidth || 38,
-      height: gamePlayer.clientHeight || 38,
-      x: gamePlayerX - (gamePlayer.clientWidth || 38) / 2,
-      y: arenaH - (gamePlayer.clientHeight || 38) - 6,
+      width: playerW,
+      height: playerH,
+      x: gamePlayerX - playerW / 2,
+      y: arenaH - playerH - 14,
     }
 
     for (const stone of stones) {
@@ -983,22 +1031,22 @@ const wireUi = async () => {
     syncGameScoreUi()
     gameRunning = true
     lastFrameTime = 0
+    setGameMode('play')
+    setGameActive(true)
 
     const arenaW = gameArena.clientWidth
     gamePlayerX = Math.max(20, Math.floor(arenaW / 2))
     gamePlayer.style.left = `${gamePlayerX}px`
     await setGamePlayerSprite(false)
 
-    if (gameStartButton) {
-      gameStartButton.textContent = '진행 중'
-    }
+    if (gameEnterButton) gameEnterButton.disabled = true
 
-    gameSpawnTimerId = window.setInterval(spawnStone, 620)
+    gameSpawnTimerId = window.setInterval(spawnStone, 540)
     gameFrameId = window.requestAnimationFrame(runGameFrame)
     toast('게임 시작! 좌우 버튼/키보드 화살표로 돌을 피하세요.')
   }
 
-  gameStartButton?.addEventListener('click', () => {
+  gameEnterButton?.addEventListener('click', () => {
     void startStoneGame()
   })
 
@@ -1024,6 +1072,7 @@ const wireUi = async () => {
   bagButton?.addEventListener('click', () => {
     if (!shopOpen) {
       applyGameOpen(false)
+      setGameActive(false)
     }
     applyShopOpen(!shopOpen)
   })
@@ -1128,7 +1177,20 @@ const wireUi = async () => {
 
 const ensureMounted = () => {
   mountWidget()
-  if (!document.getElementById(ROOT_ID)) return
+  const root = document.getElementById(ROOT_ID)
+  if (!root) return
+
+  const shadow = root.shadowRoot
+  const hasNewGameUi =
+    !!shadow?.querySelector('[data-highton="gameEnter"]') &&
+    !!shadow?.querySelector('[data-highton="gameArena"]') &&
+    !!shadow?.querySelector('[data-highton="gamePlayer"]')
+
+  if (!hasNewGameUi) {
+    unmountWidget()
+    mountWidget()
+    if (!document.getElementById(ROOT_ID)) return
+  }
 
   void wireUi()
 
@@ -1192,10 +1254,12 @@ chrome.runtime.onMessage.addListener((message) => {
     void (async () => {
       const authenticated = (message as { authenticated?: unknown }).authenticated === true
       if (!authenticated) {
+        applyAuthUi(false)
         disconnectQuestSocket()
         return
       }
 
+      applyAuthUi(true)
       await syncStatusFromBackend(true)
       await connectQuestSocket()
     })()
