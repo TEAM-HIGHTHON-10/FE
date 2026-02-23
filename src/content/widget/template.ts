@@ -1254,7 +1254,13 @@ export const createWidgetCss = (topOffset: number) => `
       display: flex;
       flex-direction: row;
       align-items: center;
-      gap: 14px;
+      gap: 10px;
+    }
+
+    .questActions {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
     }
 
     .questReward {
@@ -1288,6 +1294,26 @@ export const createWidgetCss = (topOffset: number) => `
       background: rgba(93, 93, 93, 0.2);
       border: 1px solid rgba(93, 93, 93, 0.2);
       color: rgba(255, 255, 255, 0.2);
+      cursor: not-allowed;
+    }
+
+    .questRerollBtn {
+      box-sizing: border-box;
+      height: 22px;
+      padding: 4px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 205, 118, 0.75);
+      background: rgba(94, 55, 19, 0.44);
+      color: rgba(255, 239, 211, 0.95);
+      font-weight: 700;
+      font-size: 11px;
+      line-height: 14px;
+      letter-spacing: -0.02em;
+      cursor: pointer;
+    }
+
+    .questRerollBtn:disabled {
+      opacity: 0.5;
       cursor: not-allowed;
     }
 
@@ -1421,7 +1447,7 @@ export const createWidgetHtml = () => `
               <img class="gameMenuStone" src="${ICON_DATA_URLS.stone}" alt="stone" />
               <div class="gameMenuReward"><img class="eggGlyphIcon" src="${ICON_DATA_URLS.egg}" alt="" aria-hidden="true" /><span data-highton="gameCost">10</span></div>
               <div class="gameMenuTitle">돌 피하기</div>
-              <div class="gameMenuMeta" data-highton="gameMeta">보통 · 보상 배율 x1.0</div>
+              <div class="gameMenuMeta" data-highton="gameMeta">보통 · 난이도 배율 x1.2 </div>
             </button>
           </div>
           <div class="gamePlayView" data-highton="gamePlayView">
@@ -1429,7 +1455,7 @@ export const createWidgetHtml = () => `
               <div class="gameScore"><span data-highton="gameScore">0</span>점</div>
               <div class="gameReward">
                 <img class="goldGlyphIcon" src="${ICON_DATA_URLS.goldEgg}" alt="" aria-hidden="true" />
-                점수 x <span data-highton="gameRewardMultiplier">1.0</span>=보상
+                점수 x <span data-highton="gameRewardMultiplier">1.2</span> x 0.5 = 보상
                 <img class="gameStone" src="${ICON_DATA_URLS.stone}" alt="" aria-hidden="true" />
               </div>
             </div>
@@ -1441,7 +1467,7 @@ export const createWidgetHtml = () => `
               <button class="gameMoveBtn" type="button" data-highton="gameMoveLeft" aria-label="move left">◀ 왼쪽</button>
               <button class="gameMoveBtn" type="button" data-highton="gameMoveRight" aria-label="move right">오른쪽 ▶</button>
             </div>
-            <div class="gameHint">키보드 ← → 로 이동 가능, 어려움에선 거대 돌이 가끔 등장합니다</div>
+            <div class="gameHint">키보드 ← → 이동, 어려움 거대 돌 등장, 충돌 시 1회 보험(황금 달걀 15)</div>
           </div>
         </div>
       </section>
@@ -1493,6 +1519,36 @@ export const createWidgetHtml = () => `
           <div class="shopDesc" data-highton="shop-desc">돌 피하기 충돌 판정 12% 감소</div>
           <div class="shopAction" data-highton="shop-action">구매하기</div>
         </button>
+        <button class="shopCard" type="button" data-highton="shop-item" data-item="quest_boost_24h" data-category="upgrade" data-visible="0">
+          <img class="shopIcon" src="${ICON_DATA_URLS.egg}" alt="" aria-hidden="true" />
+          <div class="shopPrice">
+            <img class="goldGlyphIcon" src="${ICON_DATA_URLS.goldEgg}" alt="" aria-hidden="true" />
+            <span data-highton="shop-price">90</span>
+          </div>
+          <div class="shopName">퀘스트 부스터 24h</div>
+          <div class="shopDesc" data-highton="shop-desc">24시간 퀘스트 보상 +10%</div>
+          <div class="shopAction" data-highton="shop-action">구매하기</div>
+        </button>
+        <button class="shopCard" type="button" data-highton="shop-item" data-item="game_discount_24h" data-category="upgrade" data-visible="0">
+          <img class="shopIcon" src="${ICON_DATA_URLS.game}" alt="" aria-hidden="true" />
+          <div class="shopPrice">
+            <img class="goldGlyphIcon" src="${ICON_DATA_URLS.goldEgg}" alt="" aria-hidden="true" />
+            <span data-highton="shop-price">80</span>
+          </div>
+          <div class="shopName">게임 할인권 24h</div>
+          <div class="shopDesc" data-highton="shop-desc">24시간 입장비 -2</div>
+          <div class="shopAction" data-highton="shop-action">구매하기</div>
+        </button>
+        <button class="shopCard" type="button" data-highton="shop-item" data-item="feed_boost_24h" data-category="upgrade" data-visible="0">
+          <img class="shopIcon" src="${ICON_DATA_URLS.goldEgg}" alt="" aria-hidden="true" />
+          <div class="shopPrice">
+            <img class="goldGlyphIcon" src="${ICON_DATA_URLS.goldEgg}" alt="" aria-hidden="true" />
+            <span data-highton="shop-price">95</span>
+          </div>
+          <div class="shopName">성장 촉진제 24h</div>
+          <div class="shopDesc" data-highton="shop-desc">24시간 성장 EXP +20%</div>
+          <div class="shopAction" data-highton="shop-action">구매하기</div>
+        </button>
         </div>
       </section>
       <div class="toast" data-highton="toast"></div>
@@ -1523,7 +1579,10 @@ export const createWidgetHtml = () => `
               <img class="eggGlyphIcon" src="${ICON_DATA_URLS.egg}" alt="" aria-hidden="true" />
               <span data-highton="q_reward">${DEFAULT_QUESTS.commit1.rewardCoins}</span>
             </div>
-            <button class="questBtn" type="button" data-highton="q_claim" data-quest="commit1">받기</button>
+            <div class="questActions">
+              <button class="questBtn" type="button" data-highton="q_claim" data-quest="commit1">받기</button>
+              <button class="questRerollBtn" type="button" data-highton="q_reroll" data-quest="commit1">교체</button>
+            </div>
           </div>
         </div>
 
@@ -1535,7 +1594,10 @@ export const createWidgetHtml = () => `
               <img class="eggGlyphIcon" src="${ICON_DATA_URLS.egg}" alt="" aria-hidden="true" />
               <span data-highton="q_reward">${DEFAULT_QUESTS.pr1.rewardCoins}</span>
             </div>
-            <button class="questBtn" type="button" data-highton="q_claim" data-quest="pr1">받기</button>
+            <div class="questActions">
+              <button class="questBtn" type="button" data-highton="q_claim" data-quest="pr1">받기</button>
+              <button class="questRerollBtn" type="button" data-highton="q_reroll" data-quest="pr1">교체</button>
+            </div>
           </div>
         </div>
 
@@ -1547,7 +1609,10 @@ export const createWidgetHtml = () => `
               <img class="eggGlyphIcon" src="${ICON_DATA_URLS.egg}" alt="" aria-hidden="true" />
               <span data-highton="q_reward">${DEFAULT_QUESTS.review1.rewardCoins}</span>
             </div>
-            <button class="questBtn" type="button" data-highton="q_claim" data-quest="review1">받기</button>
+            <div class="questActions">
+              <button class="questBtn" type="button" data-highton="q_claim" data-quest="review1">받기</button>
+              <button class="questRerollBtn" type="button" data-highton="q_reroll" data-quest="review1">교체</button>
+            </div>
           </div>
         </div>
       </div>

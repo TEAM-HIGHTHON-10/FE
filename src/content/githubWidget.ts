@@ -1,8 +1,12 @@
 import {
+  BUFF_DURATION_MS,
   DEBUG,
+  GAME_REVIVE_COST,
   HAT_ANCHORS,
   MINIMIZE_KEY,
   POSITION_KEY,
+  QUEST_TEMPLATE_POOL,
+  QUEST_REROLL_COST,
   QUEST_ORDER,
   ROOT_ID,
   SHOP_ITEMS,
@@ -17,7 +21,6 @@ import {
   formatCompactNumber,
   getGamePetAssetByTier,
   getLevelInfo,
-  getMoodModifier,
   getPetAssetByTier,
   getPetTalkMessage,
   getQuestDefinition,
@@ -36,7 +39,7 @@ import {
   type RuntimeResponse,
   type StatusResponse,
 } from '../integration'
-import type { PetState, QuestKey } from './widget'
+import type { AccessoryKey, PetState, QuestKey, ShopItemKey } from './widget'
 
 const getMounted = () => {
   const root = document.getElementById(ROOT_ID)
@@ -50,6 +53,8 @@ const getMounted = () => {
 let toastTimerId: number | null = null
 const GAME_PLAY_COST = 10
 const GAME_PLAY_COST_DISCOUNT = 3
+const GAME_BUFF_DISCOUNT = 2
+const GAME_REWARD_BASE_MULTIPLIER = 0.5
 
 type GameDifficulty = 'easy' | 'normal' | 'hard'
 
@@ -69,29 +74,29 @@ const GAME_DIFFICULTIES: Record<
 > = {
   easy: {
     label: '쉬움',
-    rewardMultiplier: 0.85,
+    rewardMultiplier: 1,
     spawnMs: 680,
     speedMin: 130,
     speedRange: 90,
-    scoreStep: 8,
+    scoreStep: 5,
     costDelta: -1,
   },
   normal: {
     label: '보통',
-    rewardMultiplier: 1,
+    rewardMultiplier: 1.2,
     spawnMs: 540,
     speedMin: 155,
     speedRange: 115,
-    scoreStep: 10,
+    scoreStep: 5,
     costDelta: 0,
   },
   hard: {
     label: '어려움',
-    rewardMultiplier: 1.6,
+    rewardMultiplier: 1.5,
     spawnMs: 430,
     speedMin: 210,
     speedRange: 140,
-    scoreStep: 12,
+    scoreStep: 5,
     costDelta: 2,
   },
 }
@@ -127,11 +132,63 @@ const hasItem = (state: PetState, key: 'sprint_shoes' | 'lucky_clover' | 'stone_
   return state.ownedItems.includes(key)
 }
 
+const isBuffActive = (state: PetState, buff: 'questBoost' | 'gameDiscount' | 'feedBoost') => {
+  return state.activeBuffs[buff] > Date.now()
+}
+
+const formatRemaining = (until: number) => {
+  const remainMs = Math.max(0, until - Date.now())
+  const totalMinutes = Math.ceil(remainMs / 60000)
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+  if (hours <= 0) return `${minutes}분`
+  return `${hours}시간 ${minutes}분`
+}
+
+const isShopItemKey = (value: string | null): value is ShopItemKey => {
+  if (!value) return false
+  return SHOP_ITEMS.some((item) => item.key === value)
+}
+
+const isAccessoryKey = (key: ShopItemKey): key is AccessoryKey => {
+  return (
+    key === 'straw_hat' || key === 'sprint_shoes' || key === 'lucky_clover' || key === 'stone_guard'
+  )
+}
+
+const rerollQuestDefinition = (state: PetState, key: QuestKey) => {
+  const current = getQuestDefinition(state, key)
+  const occupiedByOther = new Set(
+    state.questDefs
+      .filter((quest) => quest.key !== key)
+      .map((quest) => `${quest.metric}:${quest.target}:${quest.title}`),
+  )
+
+  const candidates = QUEST_TEMPLATE_POOL.filter((template) => {
+    const token = `${template.metric}:${template.target}:${template.title}`
+    if (token === `${current.metric}:${current.target}:${current.title}`) return false
+    return !occupiedByOther.has(token)
+  })
+
+  const picked =
+    candidates[Math.floor(Math.random() * candidates.length)] ??
+    QUEST_TEMPLATE_POOL[Math.floor(Math.random() * QUEST_TEMPLATE_POOL.length)]
+
+  return {
+    key,
+    metric: picked.metric,
+    target: picked.target,
+    rewardCoins: picked.rewardCoins,
+    title: picked.title,
+  }
+}
+
 const getGameCost = (state: PetState, difficulty: GameDifficulty) => {
   const discounted = hasItem(state, 'sprint_shoes')
     ? GAME_PLAY_COST - GAME_PLAY_COST_DISCOUNT
     : GAME_PLAY_COST
-  return Math.max(1, discounted + GAME_DIFFICULTIES[difficulty].costDelta)
+  const buffDiscount = isBuffActive(state, 'gameDiscount') ? GAME_BUFF_DISCOUNT : 0
+  return Math.max(1, discounted - buffDiscount + GAME_DIFFICULTIES[difficulty].costDelta)
 }
 
 const applyAuthUi = (authenticated: boolean) => {
@@ -502,34 +559,37 @@ const renderState = (state: PetState) => {
   const shopButtons = mounted.shadow.querySelectorAll<HTMLButtonElement>(
     '[data-highton="shop-item"]',
   )
+  const now = Date.now()
   shopButtons.forEach((btn) => {
     const itemKey = btn.getAttribute('data-item')
-    if (
-      itemKey !== 'straw_hat' &&
-      itemKey !== 'sprint_shoes' &&
-      itemKey !== 'lucky_clover' &&
-      itemKey !== 'stone_guard'
-    ) {
-      return
-    }
+    if (!isShopItemKey(itemKey)) return
     const item = SHOP_ITEMS.find((x) => x.key === itemKey)
     if (!item) return
 
-    const owned = normalized.ownedItems.includes(itemKey)
-    const equipped = item.passive ? false : normalized.equippedItem === itemKey
+    const owned =
+      !item.buffKey && isAccessoryKey(item.key) ? normalized.ownedItems.includes(item.key) : false
+    const equipped =
+      !item.passive && !item.buffKey && isAccessoryKey(item.key)
+        ? normalized.equippedItem === item.key
+        : false
     const price = btn.querySelector<HTMLElement>('[data-highton="shop-price"]')
     const action = btn.querySelector<HTMLElement>('[data-highton="shop-action"]')
     const desc = btn.querySelector<HTMLElement>('[data-highton="shop-desc"]')
+    const buffActive = item.buffKey ? normalized.activeBuffs[item.buffKey] > now : false
 
     if (price) {
       price.textContent = String(item.price)
-      price.style.opacity = owned ? '0.6' : '1'
+      price.style.opacity = owned || buffActive ? '0.6' : '1'
     }
     if (desc) {
-      desc.textContent = item.description
+      desc.textContent =
+        item.buffKey && buffActive
+          ? `${item.description} (남은 시간 ${formatRemaining(normalized.activeBuffs[item.buffKey])})`
+          : item.description
     }
     if (action) {
-      if (item.passive) action.textContent = owned ? '적용 중' : '구매하기'
+      if (item.buffKey) action.textContent = buffActive ? '연장하기' : '구매하기'
+      else if (item.passive) action.textContent = owned ? '적용 중' : '구매하기'
       else action.textContent = equipped ? '착용 중' : owned ? '착용하기' : '구매하기'
     }
     btn.setAttribute('data-owned', owned ? '1' : '0')
@@ -542,18 +602,28 @@ const renderState = (state: PetState) => {
     const title = row.querySelector<HTMLElement>('[data-highton="q_title"]')
     const reward = row.querySelector<HTMLElement>('[data-highton="q_reward"]')
     const claim = row.querySelector<HTMLButtonElement>('[data-highton="q_claim"]')
+    const reroll = row.querySelector<HTMLButtonElement>('[data-highton="q_reroll"]')
 
     const done = isQuestCompleted(normalized, key)
     const def = getQuestDefinition(normalized, key)
+    const rewardMultiplier =
+      1 +
+      (normalized.ownedItems.includes('lucky_clover') ? 0.2 : 0) +
+      (isBuffActive(normalized, 'questBoost') ? 0.1 : 0)
+    const rewardPreview = Math.max(1, Math.floor(def.rewardCoins * rewardMultiplier))
 
     if (title) {
       const progress = Math.min(normalized.counts[def.metric], def.target)
       title.textContent = `${def.title} (${progress}/${def.target})`
     }
-    if (reward) reward.textContent = String(def.rewardCoins)
+    if (reward) reward.textContent = String(rewardPreview)
     if (claim) {
       claim.disabled = !done
       claim.textContent = '받기'
+    }
+    if (reroll) {
+      reroll.disabled = normalized.goldenEggs < QUEST_REROLL_COST
+      reroll.textContent = `교체(${QUEST_REROLL_COST})`
     }
   }
 
@@ -931,14 +1001,13 @@ const wireUi = async () => {
         return
       }
 
-      const spent = 1
-      const rawGain = 12 * getMoodModifier(current.mood)
-      const expGain = Math.max(6, Math.floor(rawGain))
+      const spent = current.coins
+      const expGain = spent
       const previousLevel = getLevelInfo(current.exp)
 
       const next: PetState = {
         ...current,
-        coins: Math.max(0, current.coins - spent),
+        coins: 0,
         exp: clampExp(current.exp + expGain),
         mood: improveMood(current.mood),
         counts: {
@@ -991,6 +1060,9 @@ const wireUi = async () => {
   let gameScore = 0
   let gamePlayerX = 0
   let gameStoneGuardActive = false
+  let gameReviveUsed = false
+  let gameRevivePending = false
+  let gameInvincibleUntil = 0
   let selectedDifficulty: GameDifficulty = 'normal'
   let activeRunDifficulty: GameDifficulty = 'normal'
   let gameFrameId: number | null = null
@@ -1028,7 +1100,7 @@ const wireUi = async () => {
       gameRewardMultiplier.textContent = config.rewardMultiplier.toFixed(1)
     }
     if (gameMeta) {
-      gameMeta.textContent = `${config.label} · 보상 배율 x${config.rewardMultiplier.toFixed(1)}`
+      gameMeta.textContent = `${config.label} · 난이도 배율 x${config.rewardMultiplier.toFixed(1)} `
     }
 
     void (async () => {
@@ -1123,6 +1195,7 @@ const wireUi = async () => {
   const endGame = (rewardPlayer: boolean) => {
     gameRunning = false
     gameStoneGuardActive = false
+    gameRevivePending = false
     clearGameTimers()
     if (gameEnterButton) gameEnterButton.disabled = false
     if (gameMoveLeftButton) gameMoveLeftButton.disabled = false
@@ -1146,7 +1219,10 @@ const wireUi = async () => {
       const prev = await loadState()
       const current = ensureToday(prev)
       const config = GAME_DIFFICULTIES[activeRunDifficulty]
-      const reward = Math.max(0, Math.floor(gameScore * config.rewardMultiplier))
+      const reward = Math.max(
+        0,
+        Math.floor(gameScore * config.rewardMultiplier * GAME_REWARD_BASE_MULTIPLIER),
+      )
       const next: PetState = {
         ...current,
         goldenEggs: current.goldenEggs + reward,
@@ -1162,7 +1238,7 @@ const wireUi = async () => {
       setGameMode('menu')
       setGameActive(false)
       toast(
-        `게임 오버! ${config.label} 난이도 점수 ${gameScore}, 황금 달걀 +${reward} (x${config.rewardMultiplier.toFixed(1)})`,
+        `게임 오버! ${config.label} 난이도 점수 ${gameScore}, 황금 달걀 +${reward} (x${(config.rewardMultiplier * GAME_REWARD_BASE_MULTIPLIER).toFixed(2)})`,
       )
     })()
   }
@@ -1192,6 +1268,7 @@ const wireUi = async () => {
     }
 
     let collided = false
+    const invincible = now < gameInvincibleUntil
     stones = stones.filter((stone) => {
       const sx = stone.x
       const sy = stone.y
@@ -1200,6 +1277,11 @@ const wireUi = async () => {
         sx + stone.width > playerRect.x &&
         sy < playerRect.y + playerRect.height &&
         sy + stone.height > playerRect.y
+
+      if (hit && invincible) {
+        stone.element.remove()
+        return false
+      }
 
       if (hit) {
         collided = true
@@ -1218,6 +1300,36 @@ const wireUi = async () => {
     })
 
     if (collided) {
+      if (!gameReviveUsed && !gameRevivePending) {
+        gameRevivePending = true
+        void (async () => {
+          const prev = await loadState()
+          const current = ensureToday(prev)
+
+          if (current.goldenEggs < GAME_REVIVE_COST) {
+            gameRevivePending = false
+            endGame(true)
+            return
+          }
+
+          const revived: PetState = {
+            ...current,
+            goldenEggs: current.goldenEggs - GAME_REVIVE_COST,
+          }
+          const withLog = pushLog(revived, `Game revive: -${GAME_REVIVE_COST} golden eggs`)
+          await saveState(withLog)
+          renderState(withLog)
+
+          gameReviveUsed = true
+          gameRevivePending = false
+          gameInvincibleUntil = performance.now() + 1200
+          clearStones()
+          toast(`재도전 보험 발동! 황금 달걀 -${GAME_REVIVE_COST}`)
+          gameFrameId = window.requestAnimationFrame(runGameFrame)
+        })()
+        return
+      }
+
       endGame(true)
       return
     }
@@ -1235,6 +1347,9 @@ const wireUi = async () => {
     const config = GAME_DIFFICULTIES[activeRunDifficulty]
     const gameCost = getGameCost(current, activeRunDifficulty)
     gameStoneGuardActive = hasItem(current, 'stone_guard')
+    gameReviveUsed = false
+    gameRevivePending = false
+    gameInvincibleUntil = 0
     if (current.coins < gameCost) {
       toast(`달걀이 부족해요. 돌 피하기는 달걀 ${gameCost}개가 필요해요.`)
       return
@@ -1310,14 +1425,7 @@ const wireUi = async () => {
   shopButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
       const itemKey = btn.getAttribute('data-item')
-      if (
-        itemKey !== 'straw_hat' &&
-        itemKey !== 'sprint_shoes' &&
-        itemKey !== 'lucky_clover' &&
-        itemKey !== 'stone_guard'
-      ) {
-        return
-      }
+      if (!isShopItemKey(itemKey)) return
 
       void (async () => {
         const item = SHOP_ITEMS.find((x) => x.key === itemKey)
@@ -1325,7 +1433,36 @@ const wireUi = async () => {
 
         const prev = await loadState()
         const current = ensureToday(prev)
-        const owned = current.ownedItems.includes(itemKey)
+
+        if (item.buffKey) {
+          if (current.goldenEggs < item.price) {
+            toast('황금 달걀이 부족해요')
+            return
+          }
+
+          const now = Date.now()
+          const nextUntil = Math.max(now, current.activeBuffs[item.buffKey]) + BUFF_DURATION_MS
+          const next: PetState = {
+            ...current,
+            goldenEggs: current.goldenEggs - item.price,
+            activeBuffs: {
+              ...current.activeBuffs,
+              [item.buffKey]: nextUntil,
+            },
+          }
+
+          const withLog = pushLog(next, `Buff: ${item.name} +24h (-${item.price} golden eggs)`)
+          await saveState(withLog)
+          renderState(withLog)
+          toast(`${item.name} 적용! (남은 ${formatRemaining(nextUntil)})`)
+          return
+        }
+
+        if (!isAccessoryKey(item.key)) return
+
+        const accessoryKey = item.key
+
+        const owned = current.ownedItems.includes(accessoryKey)
 
         if (!owned) {
           if (current.goldenEggs < item.price) {
@@ -1336,8 +1473,8 @@ const wireUi = async () => {
           const next: PetState = {
             ...current,
             goldenEggs: current.goldenEggs - item.price,
-            ownedItems: [...current.ownedItems, itemKey],
-            equippedItem: item.passive ? current.equippedItem : itemKey,
+            ownedItems: [...current.ownedItems, accessoryKey],
+            equippedItem: item.passive ? current.equippedItem : accessoryKey,
           }
 
           const withLog = pushLog(next, `Shop: bought ${item.name} -${item.price} golden eggs`)
@@ -1352,7 +1489,8 @@ const wireUi = async () => {
           return
         }
 
-        const equipNext = current.equippedItem === itemKey ? null : itemKey
+        const equipNext: AccessoryKey | null =
+          current.equippedItem === accessoryKey ? null : accessoryKey
         const next: PetState = {
           ...current,
           equippedItem: equipNext,
@@ -1391,10 +1529,13 @@ const wireUi = async () => {
         const nextCounts = { ...current.counts }
         nextCounts[questDef.metric] = Math.max(0, nextCounts[questDef.metric] - questDef.target)
 
-        const bonusReward = hasItem(current, 'lucky_clover')
-          ? Math.max(1, Math.floor(questDef.rewardCoins * 0.2))
-          : 0
-        const totalReward = questDef.rewardCoins + bonusReward
+        const luckyBonus = hasItem(current, 'lucky_clover') ? 0.2 : 0
+        const buffBonus = isBuffActive(current, 'questBoost') ? 0.1 : 0
+        const totalReward = Math.max(
+          1,
+          Math.floor(questDef.rewardCoins * (1 + luckyBonus + buffBonus)),
+        )
+        const bonusReward = totalReward - questDef.rewardCoins
 
         const next: PetState = {
           ...current,
@@ -1407,9 +1548,43 @@ const wireUi = async () => {
         renderState(withLog)
         toast(
           bonusReward > 0
-            ? `보상 받기 완료! +${totalReward} (클로버 보너스 +${bonusReward})`
+            ? `보상 받기 완료! +${totalReward} (보너스 +${bonusReward})`
             : `보상 받기 완료! +${totalReward}`,
         )
+      })()
+    })
+  })
+
+  const rerollButtons = mounted.shadow.querySelectorAll<HTMLButtonElement>(
+    '[data-highton="q_reroll"]',
+  )
+  rerollButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const key = btn.getAttribute('data-quest')
+      if (key !== 'commit1' && key !== 'pr1' && key !== 'review1') return
+
+      void (async () => {
+        const prev = await loadState()
+        const current = ensureToday(prev)
+        if (current.goldenEggs < QUEST_REROLL_COST) {
+          toast(`황금 달걀 ${QUEST_REROLL_COST}개가 필요해요.`)
+          return
+        }
+
+        const nextDefs = current.questDefs.map((quest) =>
+          quest.key === key ? rerollQuestDefinition(current, key) : quest,
+        )
+
+        const next: PetState = {
+          ...current,
+          goldenEggs: current.goldenEggs - QUEST_REROLL_COST,
+          questDefs: nextDefs,
+        }
+
+        const withLog = pushLog(next, `Quest reroll: ${key} (-${QUEST_REROLL_COST} golden eggs)`)
+        await saveState(withLog)
+        renderState(withLog)
+        toast('퀘스트를 새로 교체했어요!')
       })()
     })
   })

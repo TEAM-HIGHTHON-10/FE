@@ -1,6 +1,7 @@
 import { QUEST_ORDER, STORAGE_KEY, WEEKLY_STATS_KEY } from './constants'
 import { buildDailyQuestDefs, clampExp, createDefaultState, ensureToday, getDayKey } from './logic'
 import type {
+  ActiveBuffs,
   AccessoryKey,
   DailyCounts,
   LogItem,
@@ -184,6 +185,28 @@ export const loadState = async (): Promise<PetState> => {
   const equippedItem: AccessoryKey | null =
     equippedItemRaw === 'straw_hat' && ownedItems.includes('straw_hat') ? equippedItemRaw : null
 
+  const activeBuffsRaw = (raw as { activeBuffs?: unknown }).activeBuffs
+  const activeBuffs: ActiveBuffs = {
+    questBoost:
+      activeBuffsRaw &&
+      typeof activeBuffsRaw === 'object' &&
+      typeof (activeBuffsRaw as { questBoost?: unknown }).questBoost === 'number'
+        ? Math.max(0, Math.floor((activeBuffsRaw as { questBoost: number }).questBoost))
+        : 0,
+    gameDiscount:
+      activeBuffsRaw &&
+      typeof activeBuffsRaw === 'object' &&
+      typeof (activeBuffsRaw as { gameDiscount?: unknown }).gameDiscount === 'number'
+        ? Math.max(0, Math.floor((activeBuffsRaw as { gameDiscount: number }).gameDiscount))
+        : 0,
+    feedBoost:
+      activeBuffsRaw &&
+      typeof activeBuffsRaw === 'object' &&
+      typeof (activeBuffsRaw as { feedBoost?: unknown }).feedBoost === 'number'
+        ? Math.max(0, Math.floor((activeBuffsRaw as { feedBoost: number }).feedBoost))
+        : 0,
+  }
+
   const state: PetState = {
     coins,
     goldenEggs: typeof goldenEggsRaw === 'number' ? Math.max(0, Math.floor(goldenEggsRaw)) : 0,
@@ -193,6 +216,7 @@ export const loadState = async (): Promise<PetState> => {
     lastCommitAt: typeof lastCommitAt === 'number' ? lastCommitAt : 0,
     dayKey: typeof dayKeyRaw === 'string' ? dayKeyRaw : getDayKey(),
     counts,
+    activeBuffs,
     questDefs: questDefsByDay,
     quests,
     logs,

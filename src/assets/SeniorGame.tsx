@@ -1,4 +1,4 @@
-export const Senior = () => {
+export const SeniorGame = () => {
   return (
     <svg
       width="161"
